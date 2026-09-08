@@ -12,6 +12,9 @@ node_modules
 .DS_Store
 Thumbs.db
 
+# Tooling
+.claude/
+
 # Env
 .env
 .env.*
