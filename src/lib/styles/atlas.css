@@ -1,0 +1,150 @@
+/* Atlas visual foundation, ported from the original design's global stylesheet.
+   Palette lives on :root (dark, the default) and :root[data-theme='light']. */
+
+:root {
+	--bg: #000000;
+	--surf: #0a0a0a;
+	--raised: #111111;
+	--bd: #242424;
+	--bdh: #3a3a3a;
+	--text: #ededed;
+	--sec: #a1a1a1;
+	--muted: #707070;
+	--accent: #0070f3;
+	--hover: rgba(255, 255, 255, 0.055);
+	--sel: rgba(0, 112, 243, 0.1);
+	--inv: #ffffff;
+	--invfg: #000000;
+	--ok: #00ca51;
+	--warn: #f5a623;
+	--err: #ee0000;
+	--neutral: #707070;
+	--rowpad: 11px 14px;
+	--poster: 158px;
+	--sidebar: 216px;
+}
+
+:root[data-theme='light'] {
+	--bg: #ffffff;
+	--surf: #fafafa;
+	--raised: #ffffff;
+	--bd: #eaeaea;
+	--bdh: #d4d4d4;
+	--text: #000000;
+	--sec: #666666;
+	--muted: #888888;
+	--hover: rgba(0, 0, 0, 0.045);
+	--sel: rgba(0, 112, 243, 0.07);
+	--inv: #000000;
+	--invfg: #ffffff;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	background: var(--bg);
+}
+
+body {
+	color: var(--text);
+	font-family:
+		Geist,
+		Inter,
+		system-ui,
+		-apple-system,
+		sans-serif;
+	font-size: 14px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: var(--accent);
+	text-decoration: none;
+}
+a:hover {
+	color: #3291ff;
+}
+
+input,
+button,
+select {
+	font-family: inherit;
+}
+input::placeholder {
+	color: var(--muted);
+}
+
+::selection {
+	background: rgba(0, 112, 243, 0.3);
+}
+
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-thumb {
+	background: #2a2a2a;
+	border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes tin {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes fin {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+/* Hover / focus utilities. The design's per-element hover/focus styles, collapsed
+   into pseudo-classes; these cover the recurring patterns. */
+.at-hov:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+.at-hov-bg:hover {
+	background: var(--hover);
+}
+.at-bdh:hover {
+	border-color: var(--bdh);
+}
+.at-bdh-t:hover {
+	border-color: var(--bdh);
+	color: var(--text);
+}
+.at-op:hover {
+	opacity: 0.85;
+}
+.at-ct:hover {
+	color: var(--text);
+}
+.at-warn:hover {
+	background: rgba(245, 166, 35, 0.14);
+}
+.at-focus:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.25);
+}
