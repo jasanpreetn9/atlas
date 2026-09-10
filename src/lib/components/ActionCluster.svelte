@@ -38,11 +38,11 @@
 				e.stopPropagation();
 				a.onClick?.();
 			}}
-			style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:6px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;transition:background 120ms ease-out,color 120ms ease-out"
+			style="display:grid;place-items:center;width:23px;height:23px;padding:0;border-radius:6px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;transition:background 120ms ease-out,color 120ms ease-out"
 		>
 			<svg
-				width="14"
-				height="14"
+				width="13"
+				height="13"
 				viewBox="0 0 24 24"
 				fill={a.on ? 'currentColor' : 'none'}
 				stroke={a.on ? 'var(--text)' : a.tone === 'danger' ? 'var(--err)' : 'currentColor'}

@@ -13,6 +13,7 @@
 	import InteractiveSearch from '$lib/components/modals/InteractiveSearch.svelte';
 	import EpisodeModal from '$lib/components/modals/EpisodeModal.svelte';
 	import TableOptions from '$lib/components/modals/TableOptions.svelte';
+	import Dialog from '$lib/components/modals/Dialog.svelte';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -35,7 +36,9 @@
 			localStorage.setItem('atlas:theme', store.theme);
 			localStorage.setItem('atlas:density', store.density);
 			localStorage.setItem('atlas:poster', String(store.posterSize));
+			localStorage.setItem('atlas:libpagesize', String(store.libPageSize));
 			localStorage.setItem('atlas:sidebar', store.sidebarExpanded ? '1' : '0');
+			localStorage.setItem('atlas:epcols', JSON.stringify(store.epShow));
 		} catch {
 			/* private mode / disabled storage */
 		}
@@ -86,3 +89,4 @@
 <InteractiveSearch />
 <EpisodeModal />
 <TableOptions />
+<Dialog />

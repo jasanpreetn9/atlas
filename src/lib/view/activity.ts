@@ -268,7 +268,7 @@ export function historyRows(
 			const ep = h.episode;
 			const code = ep ? episodeCode(ep.seasonNumber, ep.episodeNumber) : '';
 			title = s?.title ? (code ? `${s.title} · ${code}` : s.title) : (h.sourceTitle ?? '—');
-			if (s) href = `/library/s:${s.id}`;
+			if (s) href = h.episodeId ? `/library/s:${s.id}?ep=${h.episodeId}` : `/library/s:${s.id}`;
 		} else {
 			kind = 'movie';
 			tag = 'M';

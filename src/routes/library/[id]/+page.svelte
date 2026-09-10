@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { api } from '$lib/api/client';
 	import { store, EP_COLUMNS } from '$lib/stores/store.svelte';
 	import { library } from '$lib/stores/library.svelte';
@@ -99,10 +100,41 @@
 		data.kind === 'series' ? buildSeasons(data.episodes, data.episodeFiles, queuedEpisodeIds) : []
 	);
 	let openSeasons = $state<Record<number, boolean>>({});
+	// `?ep=<episodeId>` (from a Calendar or History link) focuses one episode.
+	const focusEp = $derived(Number(page.url.searchParams.get('ep')) || null);
+	const focusSeasonN = $derived.by(() => {
+		if (focusEp == null) return null;
+		for (const s of seasons) if (s.episodes.some((e) => e.id === focusEp)) return s.n;
+		return null;
+	});
+	// Default the newest season open (seasons are sorted ascending; Specials is 0).
+	const defaultOpenSeason = $derived(seasons.length ? Math.max(...seasons.map((s) => s.n)) : null);
 	function seasonOpen(n: number): boolean {
 		if (n in openSeasons) return openSeasons[n];
-		return seasons.length > 0 && n === seasons[0].n;
+		if (focusSeasonN != null) return n === focusSeasonN;
+		return n === defaultOpenSeason;
 	}
+
+	// Scroll the focused episode into view once its season table has rendered.
+	let scrolledFor: number | null = null;
+	$effect(() => {
+		const id = focusEp;
+		if (id == null || !found || focusSeasonN == null || scrolledFor === id) return;
+		scrolledFor = id;
+		let tries = 0;
+		const go = () => {
+			const el = document.getElementById(`ep-${id}`);
+			if (!el) {
+				if (tries++ < 30) setTimeout(go, 70);
+				return;
+			}
+			// instant scroll; smooth is silently dropped while the page is still loading
+			el.scrollIntoView({ block: 'center' });
+			// re-assert after a beat in case late images shift layout
+			setTimeout(() => el.scrollIntoView({ block: 'center' }), 250);
+		};
+		setTimeout(go, 50);
+	});
 	function toggleSeason(n: number) {
 		openSeasons = { ...openSeasons, [n]: !seasonOpen(n) };
 	}
@@ -111,6 +143,32 @@
 	}
 
 	const epCols = $derived(EP_COLUMNS.filter((c) => store.epShow[c.key]));
+
+	// Relative column weights. They are turned into percentages of the visible set
+	// (below) so the table is always exactly pane-width with `table-layout:fixed` and
+	// never scrolls sideways: tight columns just wrap their text.
+	const EP_COL_WEIGHT: Record<string, number> = {
+		num: 7,
+		title: 20,
+		air: 12,
+		codec: 6,
+		audio: 12,
+		subs: 9,
+		size: 8,
+		group: 11,
+		score: 7,
+		status: 12
+	};
+	// Trailing actions column weight (5 icon buttons).
+	const EP_ACTIONS_WEIGHT = 14;
+
+	const epColPct = $derived.by(() => {
+		const total = epCols.reduce((n, c) => n + (EP_COL_WEIGHT[c.key] ?? 10), 0) + EP_ACTIONS_WEIGHT;
+		const pct = (w: number) => `${((w / total) * 100).toFixed(3)}%`;
+		const map: Record<string, string> = { actions: pct(EP_ACTIONS_WEIGHT) };
+		for (const c of epCols) map[c.key] = pct(EP_COL_WEIGHT[c.key] ?? 10);
+		return map;
+	});
 
 	function cellValue(row: EpisodeRow, key: string): string {
 		switch (key) {
@@ -141,6 +199,17 @@
 	// ---- actions ----
 	function notYet(label: string) {
 		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
+	}
+
+	function openDialog(mode: 'edit' | 'delete') {
+		const item = series ?? movie;
+		if (!item) return;
+		store.openDialog(mode, {
+			kind: data.kind,
+			id: item.id,
+			title: item.title ?? '',
+			year: item.year
+		});
 	}
 
 	async function toggleMonitored() {
@@ -481,6 +550,13 @@
 					>
 					<button
 						type="button"
+						onclick={() => openDialog('edit')}
+						class="at-bdh"
+						style="height:34px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
+						>Edit</button
+					>
+					<button
+						type="button"
 						onclick={() => notYet('Preview rename')}
 						class="at-bdh"
 						style="height:34px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
@@ -488,7 +564,7 @@
 					>
 					<button
 						type="button"
-						onclick={() => notYet('Delete')}
+						onclick={() => openDialog('delete')}
 						class="at-bdh"
 						style="height:34px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--err);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
 						>Delete</button
@@ -595,9 +671,7 @@
 						</div>
 					</div>
 					{#if open}
-						<div
-							style="border-top:1px solid var(--bd);animation:fin 130ms ease-out;overflow-x:auto"
-						>
+						<div style="border-top:1px solid var(--bd);animation:fin 130ms ease-out">
 							<table style="width:100%;border-collapse:collapse;table-layout:fixed">
 								<thead>
 									<tr>
@@ -605,16 +679,13 @@
 											<th
 												style="text-align:{c.key === 'size' || c.key === 'score'
 													? 'right'
-													: 'left'};padding:8px 12px;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;width:{c.key ===
-												'title'
-													? '220px'
-													: c.key === 'num'
-														? '86px'
-														: 'auto'}">{c.label}</th
+													: 'left'};padding:7px 8px;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--muted);overflow-wrap:break-word;width:{epColPct[
+													c.key
+												]}">{c.label}</th
 											>
 										{/each}
 										<th
-											style="width:146px;padding:8px 12px;border-bottom:1px solid var(--bd);text-align:right;position:sticky;right:0;background:var(--surf)"
+											style="width:{epColPct.actions};padding:7px 8px;border-bottom:1px solid var(--bd);text-align:right"
 										>
 											<button
 												type="button"
@@ -640,10 +711,16 @@
 								</thead>
 								<tbody>
 									{#each season.episodes as e (e.key)}
-										<tr class="at-hov-bg" style="transition:background 120ms ease-out">
+										<tr
+											id="ep-{e.id}"
+											class="at-hov-bg"
+											style="transition:background 120ms ease-out;{e.id === focusEp
+												? 'background:var(--sel);box-shadow:inset 2px 0 0 var(--accent)'
+												: ''}"
+										>
 											{#each epCols as c (c.key)}
 												<td
-													style="padding:var(--rowpad);border-bottom:1px solid var(--bd);text-align:{c.key ===
+													style="padding:var(--rowpad);padding-inline:8px;border-bottom:1px solid var(--bd);vertical-align:top;text-align:{c.key ===
 														'size' || c.key === 'score'
 														? 'right'
 														: 'left'};font-family:{c.key === 'num' ||
@@ -656,19 +733,21 @@
 												>
 													{#if c.key === 'title'}
 														<div
-															style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden"
+															style="display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;min-width:0"
 														>
 															<span
 																role="button"
 																tabindex="0"
+																title={e.title}
 																onclick={() => openEpisodeModal(e)}
 																onkeydown={(ev) => ev.key === 'Enter' && openEpisodeModal(e)}
-																style="min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;color:var(--text);cursor:pointer"
+																style="overflow-wrap:break-word;font-size:13px;font-weight:500;color:var(--text);cursor:pointer"
 																>{e.title}</span
 															>
 															{#if e.badge}
 																<span
-																	style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;background:rgba(0,112,243,.12);color:var(--accent);white-space:nowrap"
+																	title={e.badge}
+																	style="flex:none;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;background:rgba(0,112,243,.12);color:var(--accent);white-space:nowrap"
 																	>{e.badge}</span
 																>
 															{/if}
@@ -680,20 +759,19 @@
 																? 'var(--bd)'
 																: 'transparent'};background:{STATUS_BADGE_BG[
 																e.status
-															]};color:{STATUS_COLOR[e.status]};white-space:nowrap"
+															]};color:{STATUS_COLOR[e.status]};overflow-wrap:break-word"
 															>{e.hasFile ? e.quality : STATUS_LABEL[e.status]}</span
 														>
 													{:else}
-														<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-															{cellValue(e, c.key)}
-														</div>
+														{@const cv = cellValue(e, c.key)}
+														<div style="overflow-wrap:break-word">{cv}</div>
 													{/if}
 												</td>
 											{/each}
 											<td
-												style="padding:var(--rowpad);border-bottom:1px solid var(--bd);text-align:right;position:sticky;right:0;background:var(--surf)"
+												style="width:{epColPct.actions};padding:var(--rowpad);padding-inline:6px;border-bottom:1px solid var(--bd);vertical-align:top;text-align:right"
 											>
-												<div style="display:flex;justify-content:flex-end">
+												<div style="display:flex;flex-wrap:wrap;justify-content:flex-end">
 													<ActionCluster actions={episodeActions(e)} />
 												</div>
 											</td>

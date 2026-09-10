@@ -443,11 +443,9 @@
 	</div>
 </section>
 
-<div
-	style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px;align-items:start"
->
+<div style="columns:340px 3;column-gap:16px">
 	<section
-		style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
+		style="break-inside:avoid;margin:0 0 16px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
 	>
 		<div
 			style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
@@ -504,171 +502,166 @@
 		</div>
 	</section>
 
-	<div style="display:flex;flex-direction:column;gap:16px">
-		<section
-			style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
-		>
-			<div
-				style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
-			>
-				<h2 style="margin:0;font-size:14px;font-weight:600">Health</h2>
-				<span
-					style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-					>{healthCount}</span
-				>
-			</div>
-			{#each healthRows as h (h.key)}
-				<div style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd)">
-					<span
-						style="flex:none;width:7px;height:7px;margin-top:6px;border-radius:50%;background:{h.color}"
-					></span>
-					<div style="min-width:0">
-						<div style="font-size:13px;font-weight:500">{h.title}</div>
-						{#if h.detail}
-							<div style="font-size:12px;color:var(--sec);margin-top:2px">{h.detail}</div>
-						{/if}
-					</div>
-				</div>
-			{/each}
-			{#if healthRows.length === 0}
-				<div style="padding:12px 16px;font-size:13px;color:var(--muted)">
-					{loadFailed('health') ? "Couldn't load health." : 'All checks passing.'}
-				</div>
-			{/if}
-		</section>
-
-		<section
-			style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
-		>
-			<div
-				style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
-			>
-				<h2 style="margin:0;font-size:14px;font-weight:600">Downloading</h2>
-				<a
-					href="/activity"
-					class="at-hov"
-					style="padding:3px 8px;border-radius:6px;background:transparent;color:var(--sec);font-size:12px;font-weight:500;text-decoration:none"
-					>Queue →</a
-				>
-			</div>
-			{#each queueShort as q (q.key)}
-				<div style="padding:11px 16px;border-bottom:1px solid var(--bd)">
-					<div style="display:flex;align-items:center;gap:8px">
-						<span
-							style="flex:none;width:20px;text-align:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;border:1px solid var(--bd);border-radius:4px;color:var(--muted)"
-							>{q.tag}</span
-						>
-						<span
-							style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500"
-							>{q.title}</span
-						>
-						<span
-							style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--sec)"
-							>{q.pct}</span
-						>
-					</div>
-					<div
-						style="height:4px;border-radius:6px;background:var(--bd);margin-top:8px;overflow:hidden"
-					>
-						<div
-							style="height:100%;border-radius:6px;transition:width 150ms ease-out;background:{q.fill};width:{q.pct}"
-						></div>
-					</div>
-					<div
-						style="display:flex;justify-content:space-between;margin-top:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-					>
-						<span>{q.size}</span><span>{q.eta}</span>
-					</div>
-				</div>
-			{/each}
-			{#if queueShort.length === 0}
-				<div style="padding:12px 16px;font-size:13px;color:var(--muted)">Queue is empty.</div>
-			{/if}
-			<div
-				style="padding:8px 16px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--muted);border-top:1px solid var(--bd)"
-			>
-				auto-refresh · 30s
-			</div>
-		</section>
-
-		<section
-			style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
-		>
-			<div
-				style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
-			>
-				<h2 style="margin:0;font-size:14px;font-weight:600">Disk usage</h2>
-				<span style="font-size:12px;color:var(--muted)">root folders</span>
-			</div>
-			{#each disks as d (d.key)}
-				<div style="padding:13px 16px;border-bottom:1px solid var(--bd)">
-					<div style="display:flex;justify-content:space-between;gap:12px;font-size:12px">
-						<span
-							style="font-family:'Geist Mono',ui-monospace,monospace;color:var(--sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-							>{d.path}</span
-						>
-						<span
-							style="font-family:'Geist Mono',ui-monospace,monospace;color:var(--muted);flex:none"
-							>{d.label}</span
-						>
-					</div>
-					<div
-						style="height:4px;border-radius:6px;background:var(--bd);margin-top:8px;overflow:hidden"
-					>
-						<div style="height:100%;border-radius:6px;background:{d.fill};width:{d.pct}"></div>
-					</div>
-				</div>
-			{/each}
-			{#if disks.length === 0}
-				<div style="padding:13px 16px;font-size:13px;color:var(--muted)">
-					{loadFailed('rootFolders')
-						? "Couldn't load root folders."
-						: 'No root folders configured.'}
-				</div>
-			{/if}
-		</section>
-	</div>
-</div>
-
-<section
-	style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden;margin-top:16px"
->
-	<div
-		style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
+	<section
+		style="break-inside:avoid;margin:0 0 16px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
 	>
-		<h2 style="margin:0;font-size:14px;font-weight:600">Recent grabs</h2>
-		<a
-			href="/activity"
-			class="at-hov"
-			style="padding:3px 8px;border-radius:6px;background:transparent;color:var(--sec);font-size:12px;font-weight:500;text-decoration:none"
-			>History →</a
+		<div
+			style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
 		>
-	</div>
-	{#each grabsGrouped as g (g.key)}
-		<a
-			href={g.href || undefined}
-			class="at-hov-bg"
-			style="display:flex;align-items:center;gap:10px;padding:var(--rowpad);border-bottom:1px solid var(--bd);text-decoration:none;color:inherit;transition:background 120ms ease-out"
-		>
-			<span style="flex:none;width:6px;height:6px;border-radius:50%;background:{g.color}"></span>
+			<h2 style="margin:0;font-size:14px;font-weight:600">Health</h2>
 			<span
-				style="flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px"
-				>{g.title}</span
+				style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
+				>{healthCount}</span
 			>
-			<span
-				style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-				>{g.summary}</span
-			>
-			<span style="flex:none;font-size:12px;color:var(--muted)">{g.event}</span>
-			<span
-				style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-				>{g.ago}</span
-			>
-		</a>
-	{/each}
-	{#if grabsGrouped.length === 0}
-		<div style="padding:12px 16px;font-size:13px;color:var(--muted)">
-			{loadFailed('history') ? "Couldn't load history." : 'No recent history.'}
 		</div>
-	{/if}
-</section>
+		{#each healthRows as h (h.key)}
+			<div style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd)">
+				<span
+					style="flex:none;width:7px;height:7px;margin-top:6px;border-radius:50%;background:{h.color}"
+				></span>
+				<div style="min-width:0">
+					<div style="font-size:13px;font-weight:500">{h.title}</div>
+					{#if h.detail}
+						<div style="font-size:12px;color:var(--sec);margin-top:2px">{h.detail}</div>
+					{/if}
+				</div>
+			</div>
+		{/each}
+		{#if healthRows.length === 0}
+			<div style="padding:12px 16px;font-size:13px;color:var(--muted)">
+				{loadFailed('health') ? "Couldn't load health." : 'All checks passing.'}
+			</div>
+		{/if}
+	</section>
+
+	<section
+		style="break-inside:avoid;margin:0 0 16px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
+	>
+		<div
+			style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
+		>
+			<h2 style="margin:0;font-size:14px;font-weight:600">Downloading</h2>
+			<a
+				href="/activity"
+				class="at-hov"
+				style="padding:3px 8px;border-radius:6px;background:transparent;color:var(--sec);font-size:12px;font-weight:500;text-decoration:none"
+				>Queue →</a
+			>
+		</div>
+		{#each queueShort as q (q.key)}
+			<div style="padding:11px 16px;border-bottom:1px solid var(--bd)">
+				<div style="display:flex;align-items:center;gap:8px">
+					<span
+						style="flex:none;width:20px;text-align:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;border:1px solid var(--bd);border-radius:4px;color:var(--muted)"
+						>{q.tag}</span
+					>
+					<span
+						style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500"
+						>{q.title}</span
+					>
+					<span
+						style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--sec)"
+						>{q.pct}</span
+					>
+				</div>
+				<div
+					style="height:4px;border-radius:6px;background:var(--bd);margin-top:8px;overflow:hidden"
+				>
+					<div
+						style="height:100%;border-radius:6px;transition:width 150ms ease-out;background:{q.fill};width:{q.pct}"
+					></div>
+				</div>
+				<div
+					style="display:flex;justify-content:space-between;margin-top:6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
+				>
+					<span>{q.size}</span><span>{q.eta}</span>
+				</div>
+			</div>
+		{/each}
+		{#if queueShort.length === 0}
+			<div style="padding:12px 16px;font-size:13px;color:var(--muted)">Queue is empty.</div>
+		{/if}
+		<div
+			style="padding:8px 16px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--muted);border-top:1px solid var(--bd)"
+		>
+			auto-refresh · 30s
+		</div>
+	</section>
+
+	<section
+		style="break-inside:avoid;margin:0 0 16px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
+	>
+		<div
+			style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
+		>
+			<h2 style="margin:0;font-size:14px;font-weight:600">Disk usage</h2>
+			<span style="font-size:12px;color:var(--muted)">root folders</span>
+		</div>
+		{#each disks as d (d.key)}
+			<div style="padding:13px 16px;border-bottom:1px solid var(--bd)">
+				<div style="display:flex;justify-content:space-between;gap:12px;font-size:12px">
+					<span
+						style="font-family:'Geist Mono',ui-monospace,monospace;color:var(--sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+						>{d.path}</span
+					>
+					<span style="font-family:'Geist Mono',ui-monospace,monospace;color:var(--muted);flex:none"
+						>{d.label}</span
+					>
+				</div>
+				<div
+					style="height:4px;border-radius:6px;background:var(--bd);margin-top:8px;overflow:hidden"
+				>
+					<div style="height:100%;border-radius:6px;background:{d.fill};width:{d.pct}"></div>
+				</div>
+			</div>
+		{/each}
+		{#if disks.length === 0}
+			<div style="padding:13px 16px;font-size:13px;color:var(--muted)">
+				{loadFailed('rootFolders') ? "Couldn't load root folders." : 'No root folders configured.'}
+			</div>
+		{/if}
+	</section>
+
+	<section
+		style="break-inside:avoid;margin:0 0 16px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden"
+	>
+		<div
+			style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--bd)"
+		>
+			<h2 style="margin:0;font-size:14px;font-weight:600">Recent grabs</h2>
+			<a
+				href="/activity"
+				class="at-hov"
+				style="padding:3px 8px;border-radius:6px;background:transparent;color:var(--sec);font-size:12px;font-weight:500;text-decoration:none"
+				>History →</a
+			>
+		</div>
+		{#each grabsGrouped as g (g.key)}
+			<a
+				href={g.href || undefined}
+				class="at-hov-bg"
+				style="display:flex;align-items:center;gap:10px;padding:var(--rowpad);border-bottom:1px solid var(--bd);text-decoration:none;color:inherit;transition:background 120ms ease-out"
+			>
+				<span style="flex:none;width:6px;height:6px;border-radius:50%;background:{g.color}"></span>
+				<span
+					style="flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px"
+					>{g.title}</span
+				>
+				<span
+					style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
+					>{g.summary}</span
+				>
+				<span style="flex:none;font-size:12px;color:var(--muted)">{g.event}</span>
+				<span
+					style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
+					>{g.ago}</span
+				>
+			</a>
+		{/each}
+		{#if grabsGrouped.length === 0}
+			<div style="padding:12px 16px;font-size:13px;color:var(--muted)">
+				{loadFailed('history') ? "Couldn't load history." : 'No recent history.'}
+			</div>
+		{/if}
+	</section>
+</div>

@@ -47,7 +47,7 @@ export function calendarEvents(
 				code: episodeCode(item.seasonNumber, item.episodeNumber),
 				ep: item.title ?? '',
 				status: deriveEpisodeStatus(item, q.series.has(item.seriesId)),
-				href: `/library/s:${item.seriesId}`
+				href: `/library/s:${item.seriesId}?ep=${item.id}`
 			});
 		} else {
 			const iso = item.digitalRelease ?? item.physicalRelease ?? item.inCinemas;

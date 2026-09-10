@@ -28,7 +28,8 @@ export async function proxyArr(
 	}
 
 	let body: unknown;
-	if (method === 'POST' || method === 'PUT') {
+	// DELETE carries a body for the bulk editor endpoints (series/editor, movie/editor).
+	if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
 		const text = await event.request.text();
 		if (text) {
 			try {
@@ -44,8 +45,11 @@ export async function proxyArr(
 	// Interactive-search release lookups query indexers live and routinely take
 	// longer than a normal request; give them room and skip the response cache.
 	const isReleaseSearch = path === 'release' || path.startsWith('release/');
+	const isQueue = path === 'queue' || path.startsWith('queue/');
 	const timeoutMs = isReleaseSearch ? 55_000 : undefined;
-	const cacheMs = isReleaseSearch ? 0 : undefined;
+	// Queue changes often (downloads progressing); everything else is stable
+	// enough to cache for a while so navigation between pages stays snappy.
+	const cacheMs = isReleaseSearch ? 0 : isQueue ? 5_000 : 15_000;
 
 	try {
 		const data = await arrRequest(cfg, path, { method, body, query, timeoutMs, cacheMs });

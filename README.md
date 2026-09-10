@@ -7,39 +7,40 @@ live data.
 
 ## Status
 
-| Screen                                       | Route           | State                       |
-| -------------------------------------------- | --------------- | --------------------------- |
-| Dashboard                                    | `/`             | built                       |
-| Library (poster / overview / table)          | `/library`      | built                       |
-| Detail (series seasons/episodes, movie file) | `/library/[id]` | built                       |
-| Wanted (missing, cutoff unmet)               | `/wanted`       | built                       |
-| Activity (queue, history, blocklist)         | `/activity`     | built                       |
-| Add New (search, add dialog)                 | `/add`          | built                       |
-| Calendar (month grid, agenda)                | `/calendar`     | built                       |
-| Discover, System                             | n/a             | nav entries only, not built |
+| Screen                                       | Route           | State                     |
+| -------------------------------------------- | --------------- | ------------------------- |
+| Dashboard                                    | `/`             | built                     |
+| Library (poster / overview / table)          | `/library`      | built                     |
+| Detail (series seasons/episodes, movie file) | `/library/[id]` | built                     |
+| Wanted (missing, cutoff unmet)               | `/wanted`       | built                     |
+| Activity (queue, history, blocklist)         | `/activity`     | built                     |
+| Add New (search, add dialog)                 | `/add`          | built                     |
+| Calendar (month grid, agenda)                | `/calendar`     | built                     |
+| System (status, health, tasks, ...)          | `/system`       | built                     |
+| Discover                                     | n/a             | nav entry only, not built |
 
 Action buttons are wired to the live instances where that is safe (monitor
-toggles, searches, refresh, interactive-search grab, add). Destructive or
-multi-step flows (manual import, rename, delete, bulk edit) show a "not wired up
-yet" toast for now.
+toggles, searches, refresh, interactive-search grab, add, edit and delete a
+title, and the Library mass editor for monitor, quality profile, root folder
+and delete). The remaining multi-step flows (manual import, rename, mass tags,
+restart, shutdown) show a "not wired up yet" toast for now.
 
 ## To do
 
 Screens not built:
 
-- [ ] `/system`: status, tasks, backups, updates, logs, health tabs (client methods exist, unused)
 - [ ] `/discover`: deferred, no direct *arr endpoint (would need Radarr import lists or recommendations)
 
 Actions that currently only show a toast:
 
-- [ ] Detail: Delete, Delete file, Preview Rename, Manual Import, Edit quality/language, Media info
-- [ ] Library mass editor: Quality Profile, Root Folder, Tags (Monitor and Unmonitor also toast)
+- [ ] Detail: Delete file, Preview Rename, Manual Import, Media info (Edit and Delete are real via the Dialog modal)
+- [ ] Library mass editor: Tags (Monitor, Unmonitor, Quality Profile, Root Folder and Delete are real via the `/series/editor` and `/movie/editor` endpoints)
 - [ ] Activity: Remove from queue, Remove & blocklist, Pause, Mark as Failed, Remove from blocklist, Clear all, Remove Selected
-- [ ] Global Edit / Delete dialog for Detail (`store.dlg` / `dlgTarget` state exists, no component)
+- [ ] System: Restart, Shutdown
 
 Polish:
 
-- [ ] List virtualization for large libraries
+- [ ] List virtualization for very large libraries (the Library page paginates for now, 24 / 48 / 96 / all per page, persisted)
 - [ ] Sort-direction toggle (asc / desc)
 - [ ] Command palette (Cmd+K)
 - [ ] Real custom-filter builder (currently adds a placeholder chip)

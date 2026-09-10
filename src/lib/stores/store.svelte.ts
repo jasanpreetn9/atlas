@@ -58,7 +58,25 @@ const EP_SHOW_DEFAULT: Record<string, boolean> = {
 	status: true
 };
 
+/** Merge a persisted map over the defaults; locked columns are always on. */
+function parseEpShow(raw: string): Record<string, boolean> {
+	const merged: Record<string, boolean> = { ...EP_SHOW_DEFAULT };
+	try {
+		const saved = JSON.parse(raw) as Record<string, unknown>;
+		for (const c of EP_COLUMNS) {
+			if (c.locked) merged[c.key] = true;
+			else if (typeof saved[c.key] === 'boolean') merged[c.key] = saved[c.key] as boolean;
+		}
+	} catch {
+		/* keep defaults */
+	}
+	return merged;
+}
+
 const POSTER_SIZES = [120, 158, 210];
+
+/** Library page sizes; 0 means "show everything on one page". */
+export const LIB_PAGE_SIZES = [24, 48, 96, 0] as const;
 
 function read<T>(key: string, fallback: T, parse: (raw: string) => T): T {
 	if (!browser) return fallback;
@@ -82,6 +100,11 @@ class AtlasStore {
 	posterSize = $state<number>(
 		read('atlas:poster', 158, (r) => (POSTER_SIZES.includes(+r) ? +r : 158))
 	);
+	libPageSize = $state<number>(
+		read('atlas:libpagesize', 48, (r) =>
+			(LIB_PAGE_SIZES as readonly number[]).includes(+r) ? +r : 48
+		)
+	);
 	query = $state('');
 
 	// ---- overlays ----
@@ -90,7 +113,9 @@ class AtlasStore {
 	epModal = $state<EpModalTarget | null>(null);
 	epModalTab = $state<'details' | 'history'>('details');
 	epColsOpen = $state(false);
-	epShow = $state<Record<string, boolean>>({ ...EP_SHOW_DEFAULT });
+	epShow = $state<Record<string, boolean>>(
+		read('atlas:epcols', { ...EP_SHOW_DEFAULT }, parseEpShow)
+	);
 	dlg = $state<DialogKind | null>(null);
 	dlgTarget = $state<DialogTarget | null>(null);
 

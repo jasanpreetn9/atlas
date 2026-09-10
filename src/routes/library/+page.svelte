@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api/client';
-	import { store } from '$lib/stores/store.svelte';
+	import { store, LIB_PAGE_SIZES } from '$lib/stores/store.svelte';
 	import { formatBytes } from '$lib/view/format';
 	import {
 		STATUS_BADGE_BG,
@@ -32,6 +32,17 @@
 	let sel = $state<Record<string, boolean>>({});
 	let saved = $state<string[]>([]);
 	let confirmOpen = $state(false);
+
+	// ---- mass-editor panel ----
+	let massPanel = $state<'profile' | 'root' | 'delete' | null>(null);
+	let massBusy = $state(false);
+	let pProfile = $state<number | null>(null);
+	let pRoot = $state('');
+	let pMoveFiles = $state(false);
+	let pDelFiles = $state(false);
+	let pDelExclude = $state(false);
+	let panelProfiles = $state<{ id: number; name: string }[]>([]);
+	let panelRoots = $state<string[]>([]);
 
 	// ---- data (from the shared library store) ----
 	const qIndex = $derived(queueIndex([...store.extraQueue, ...library.queue]));
@@ -125,6 +136,36 @@
 		`${movieCount} movies · ${seriesCount} series · ${formatBytes(totalBytes)} · ${counts.missing} missing`
 	);
 
+	// ---- pagination ----
+	// pageSize 0 means "one page, show everything". Page is 1-based.
+	let page = $state(1);
+	const pageSize = $derived(store.libPageSize);
+	const pageCount = $derived(pageSize === 0 ? 1 : Math.max(1, Math.ceil(rows.length / pageSize)));
+	const pageRows = $derived(
+		pageSize === 0 ? rows : rows.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+	);
+	const pageStart = $derived(
+		rows.length === 0 ? 0 : pageSize === 0 ? 1 : (page - 1) * pageSize + 1
+	);
+	const pageEnd = $derived(pageSize === 0 ? rows.length : Math.min(rows.length, page * pageSize));
+
+	// Snap back to page 1 when the result set changes; otherwise keep the page in range.
+	let lastPageKey = '';
+	$effect(() => {
+		const key = `${filter}|${typeFilter}|${sort}|${q}|${pageSize}`;
+		if (key !== lastPageKey) {
+			lastPageKey = key;
+			if (page !== 1) page = 1;
+		} else if (page > pageCount) {
+			page = pageCount;
+		}
+	});
+
+	function goPage(n: number) {
+		page = Math.min(pageCount, Math.max(1, n));
+		if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
 	// ---- filters bar config ----
 	const VIEW_ICONS: Record<string, string[]> = {
 		poster: ['M4 4h6v16H4zM14 4h6v16h-6z'],
@@ -193,7 +234,25 @@
 
 	// ---- mass editor ----
 	const selIds = $derived(Object.keys(sel).filter((k) => sel[k]));
-	const allSelected = $derived(rows.length > 0 && rows.every((r) => sel[r.key]));
+	// "Select all" acts on the visible page, matching what the user sees.
+	const allSelected = $derived(pageRows.length > 0 && pageRows.every((r) => sel[r.key]));
+	const selSeriesIds = $derived(
+		selIds.filter((id) => id.startsWith('s:')).map((id) => +id.slice(2))
+	);
+	const selMovieIds = $derived(
+		selIds.filter((id) => id.startsWith('m:')).map((id) => +id.slice(2))
+	);
+	// Sonarr and Radarr keep separate profile / root-folder lists, so a shared
+	// value only makes sense when the selection is all one kind.
+	const selKind = $derived<'series' | 'movie' | 'mixed' | null>(
+		selSeriesIds.length && selMovieIds.length
+			? 'mixed'
+			: selSeriesIds.length
+				? 'series'
+				: selMovieIds.length
+					? 'movie'
+					: null
+	);
 
 	function toggleSel(id: string) {
 		sel = { ...sel, [id]: !sel[id] };
@@ -202,34 +261,109 @@
 		if (allSelected) {
 			sel = {};
 		} else {
-			const n: Record<string, boolean> = {};
-			for (const r of rows) n[r.key] = true;
+			const n: Record<string, boolean> = { ...sel };
+			for (const r of pageRows) n[r.key] = true;
 			sel = n;
 		}
 	}
 	function toggleMass() {
 		mass = !mass;
 		sel = {};
+		massPanel = null;
+	}
+
+	async function openMassPanel(which: 'profile' | 'root' | 'delete') {
+		massPanel = which;
+		pProfile = null;
+		pRoot = '';
+		pMoveFiles = false;
+		pDelFiles = false;
+		pDelExclude = false;
+		if (
+			(which === 'profile' || which === 'root') &&
+			(selKind === 'series' || selKind === 'movie')
+		) {
+			if (which === 'profile') {
+				const ps = await api.getQualityProfiles(selKind).catch(() => []);
+				panelProfiles = ps.map((p) => ({ id: p.id, name: p.name ?? `Profile ${p.id}` }));
+			} else {
+				const rf = await api.getRootFolders(selKind).catch(() => []);
+				panelRoots = rf.map((f) => f.path ?? '').filter(Boolean);
+			}
+		}
+	}
+
+	async function setMonitored(monitored: boolean) {
+		if (selIds.length === 0) return;
+		store.toast(
+			`${selIds.length} titles ${monitored ? 'monitored' : 'unmonitored'}`,
+			monitored ? 'var(--ok)' : 'var(--neutral)'
+		);
+		try {
+			await Promise.all([
+				selSeriesIds.length ? api.editSeries(selSeriesIds, { monitored }) : null,
+				selMovieIds.length ? api.editMovies(selMovieIds, { monitored }) : null
+			]);
+			sel = {};
+			await library.refresh();
+		} catch {
+			store.toast('Bulk monitor change failed', 'var(--err)');
+		}
+	}
+
+	async function applyMassPanel() {
+		if (selIds.length === 0 || massBusy) return;
+		massBusy = true;
+		try {
+			if (massPanel === 'profile') {
+				if (pProfile == null || selKind === 'mixed' || selKind === null) return;
+				if (selKind === 'series')
+					await api.editSeries(selSeriesIds, { qualityProfileId: pProfile });
+				else await api.editMovies(selMovieIds, { qualityProfileId: pProfile });
+				store.toast(`Quality profile set on ${selIds.length} titles`, 'var(--accent)');
+			} else if (massPanel === 'root') {
+				if (!pRoot || selKind === 'mixed' || selKind === null) return;
+				const changes = { rootFolderPath: pRoot, moveFiles: pMoveFiles };
+				if (selKind === 'series') await api.editSeries(selSeriesIds, changes);
+				else await api.editMovies(selMovieIds, changes);
+				store.toast(`Root folder set on ${selIds.length} titles`, 'var(--accent)');
+			} else if (massPanel === 'delete') {
+				await Promise.all([
+					selSeriesIds.length
+						? api.bulkDeleteSeries(selSeriesIds, {
+								deleteFiles: pDelFiles,
+								addImportExclusion: pDelExclude
+							})
+						: null,
+					selMovieIds.length
+						? api.bulkDeleteMovies(selMovieIds, {
+								deleteFiles: pDelFiles,
+								addImportExclusion: pDelExclude
+							})
+						: null
+				]);
+				store.toast(`${selIds.length} titles removed`, 'var(--err)');
+			}
+			sel = {};
+			massPanel = null;
+			await library.refresh();
+		} catch {
+			store.toast('Bulk action failed', 'var(--err)');
+		} finally {
+			massBusy = false;
+		}
 	}
 
 	const massActions = $derived(
 		(
 			[
-				['Monitor', () => store.toast(`${selIds.length} titles monitored`, 'var(--ok)'), false],
-				[
-					'Unmonitor',
-					() => store.toast(`${selIds.length} titles unmonitored`, 'var(--neutral)'),
-					false
-				],
-				[
-					'Quality Profile',
-					() => store.toast('Quality profile: opens editor', 'var(--accent)'),
-					false
-				],
-				['Root Folder', () => store.toast('Root folder: opens editor', 'var(--accent)'), false],
-				['Tags', () => store.toast('Tags: opens editor', 'var(--accent)'), false],
+				['Monitor', () => setMonitored(true), false],
+				['Unmonitor', () => setMonitored(false), false],
+				['Quality Profile', () => openMassPanel('profile'), false],
+				['Root Folder', () => openMassPanel('root'), false],
+				['Tags', () => store.toast('Tags: not wired up yet', 'var(--accent)'), false],
 				['Refresh', () => runRefreshSelected(), false],
-				['Delete', () => store.toast(`Delete ${selIds.length} titles`, 'var(--err)'), true]
+				['Delete', () => openMassPanel('delete'), true]
 			] as [string, () => void, boolean][]
 		).map(([label, onClick, danger]) => ({
 			key: label,
@@ -507,6 +641,7 @@
 					onclick={() => {
 						typeFilter = f.key;
 						sel = {};
+						massPanel = null;
 					}}
 					style="display:flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:6px;border:1px solid {on
 						? 'var(--bdh)'
@@ -609,6 +744,122 @@
 				>
 			{/each}
 		</div>
+
+		{#if massPanel}
+			{@const dangerPanel = massPanel === 'delete'}
+			<div
+				style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:13px 16px;border-top:1px solid {dangerPanel
+					? 'rgba(238,0,0,.35)'
+					: 'var(--bd)'};background:{dangerPanel
+					? 'rgba(238,0,0,.06)'
+					: 'var(--bg)'};animation:tin 140ms ease-out"
+			>
+				{#if massPanel === 'profile'}
+					<div style="flex:1;min-width:0">
+						<div style="font-size:13px;font-weight:500">
+							Set quality profile · {selIds.length} titles
+						</div>
+						{#if selKind === 'mixed'}
+							<div style="font-size:12px;color:var(--warn);margin-top:2px">
+								Select only movies or only series. Sonarr and Radarr keep separate profiles.
+							</div>
+						{:else}
+							<div style="font-size:12px;color:var(--sec);margin-top:1px">
+								Applies to every selected {selKind === 'series' ? 'series' : 'movie'}.
+							</div>
+						{/if}
+					</div>
+					<select
+						bind:value={pProfile}
+						disabled={selKind === 'mixed'}
+						style="height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;outline:none;min-width:180px"
+					>
+						<option value={null} disabled>Choose profile…</option>
+						{#each panelProfiles as p (p.id)}
+							<option value={p.id}>{p.name}</option>
+						{/each}
+					</select>
+				{:else if massPanel === 'root'}
+					<div style="flex:1;min-width:0">
+						<div style="font-size:13px;font-weight:500">
+							Set root folder · {selIds.length} titles
+						</div>
+						{#if selKind === 'mixed'}
+							<div style="font-size:12px;color:var(--warn);margin-top:2px">
+								Select only movies or only series. Sonarr and Radarr keep separate root folders.
+							</div>
+						{:else}
+							<label
+								style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sec);margin-top:3px;cursor:pointer"
+							>
+								<input type="checkbox" bind:checked={pMoveFiles} />
+								Move existing files on disk to the new folder
+							</label>
+						{/if}
+					</div>
+					<select
+						bind:value={pRoot}
+						disabled={selKind === 'mixed'}
+						style="height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;outline:none;min-width:200px;font-family:'Geist Mono',ui-monospace,monospace"
+					>
+						<option value="" disabled>Choose folder…</option>
+						{#each panelRoots as path (path)}
+							<option value={path}>{path}</option>
+						{/each}
+					</select>
+				{:else}
+					<div style="flex:1;min-width:0">
+						<div style="font-size:13px;font-weight:500;color:var(--err)">
+							Remove {selIds.length} titles from the library?
+						</div>
+						<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">
+							<label
+								style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:{pDelFiles
+									? 'var(--err)'
+									: 'var(--sec)'};cursor:pointer"
+							>
+								<input type="checkbox" bind:checked={pDelFiles} />
+								Also delete files from disk
+							</label>
+							<label
+								style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sec);cursor:pointer"
+							>
+								<input type="checkbox" bind:checked={pDelExclude} />
+								Add import list exclusion
+							</label>
+						</div>
+					</div>
+				{/if}
+
+				<button
+					type="button"
+					onclick={() => (massPanel = null)}
+					style="height:30px;padding:0 12px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer"
+					>Cancel</button
+				>
+				<button
+					type="button"
+					onclick={applyMassPanel}
+					disabled={massBusy ||
+						(massPanel === 'profile' && (pProfile == null || selKind === 'mixed')) ||
+						(massPanel === 'root' && (!pRoot || selKind === 'mixed'))}
+					class="at-op"
+					style="height:30px;padding:0 14px;border-radius:6px;border:none;background:{dangerPanel
+						? 'var(--err)'
+						: 'var(--accent)'};color:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:opacity 120ms ease-out;opacity:{massBusy
+						? '.6'
+						: '1'}"
+				>
+					{#if massBusy}
+						Working…
+					{:else if dangerPanel}
+						Remove {selIds.length}
+					{:else}
+						Apply
+					{/if}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -654,7 +905,7 @@
 	<div
 		style="display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--poster),1fr));gap:14px"
 	>
-		{#each rows as r (r.key)}
+		{#each pageRows as r (r.key)}
 			<a
 				href={r.href}
 				onclick={(e) => rowClick(e, r)}
@@ -760,7 +1011,7 @@
 <!-- overview view -->
 {#if allItems.length > 0 && view === 'overview'}
 	<div style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden">
-		{#each rows as r (r.key)}
+		{#each pageRows as r (r.key)}
 			<a
 				href={r.href}
 				onclick={(e) => rowClick(e, r)}
@@ -829,7 +1080,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each rows as r (r.key)}
+				{#each pageRows as r (r.key)}
 					<tr
 						onclick={(e) => {
 							if (mass) toggleSel(r.key);
@@ -900,8 +1151,95 @@
 
 {#if allItems.length > 0}
 	<div
-		style="margin-top:14px;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--muted)"
+		style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)"
 	>
-		Showing {rows.length} of {pool.length}
+		<span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--muted)">
+			{#if rows.length === 0}
+				No matches
+			{:else}
+				Showing {pageStart}–{pageEnd} of {rows.length}
+			{/if}
+		</span>
+
+		{#if pageCount > 1}
+			<div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+				<button
+					type="button"
+					onclick={() => goPage(page - 1)}
+					disabled={page <= 1}
+					class="at-bdh"
+					style="display:grid;place-items:center;width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);cursor:pointer;opacity:{page <=
+					1
+						? '.4'
+						: '1'};transition:border-color 120ms ease-out"
+					aria-label="Previous page"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"><path d="M15 6l-6 6 6 6" /></svg
+					>
+				</button>
+
+				{#if pageCount <= 9}
+					{#each Array(pageCount) as _, i (i)}
+						{@const n = i + 1}
+						<button
+							type="button"
+							onclick={() => goPage(n)}
+							style="min-width:30px;height:30px;padding:0 6px;border-radius:6px;border:1px solid {n ===
+							page
+								? 'var(--bdh)'
+								: 'var(--bd)'};background:{n === page ? 'var(--hover)' : 'transparent'};color:{n ===
+							page
+								? 'var(--text)'
+								: 'var(--sec)'};font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;cursor:pointer"
+							>{n}</button
+						>
+					{/each}
+				{:else}
+					<span
+						style="padding:0 8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--sec)"
+						>Page {page} / {pageCount}</span
+					>
+				{/if}
+
+				<button
+					type="button"
+					onclick={() => goPage(page + 1)}
+					disabled={page >= pageCount}
+					class="at-bdh"
+					style="display:grid;place-items:center;width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);cursor:pointer;opacity:{page >=
+					pageCount
+						? '.4'
+						: '1'};transition:border-color 120ms ease-out"
+					aria-label="Next page"
+				>
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"><path d="M9 6l6 6-6 6" /></svg
+					>
+				</button>
+			</div>
+		{/if}
+
+		<select
+			bind:value={store.libPageSize}
+			style="{pageCount > 1
+				? ''
+				: 'margin-left:auto;'}height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--bd);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;outline:none"
+			aria-label="Items per page"
+		>
+			{#each LIB_PAGE_SIZES as n (n)}
+				<option value={n}>{n === 0 ? 'Show all' : `${n} / page`}</option>
+			{/each}
+		</select>
 	</div>
 {/if}

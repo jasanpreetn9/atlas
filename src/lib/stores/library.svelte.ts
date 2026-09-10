@@ -4,7 +4,7 @@
 // instead of every page blocking on ~600 KB of series/movies. Routes read from here;
 // `refresh()` re-pulls (e.g. a "Refresh" button, or after a mutating action).
 
-import { createHttpApi } from '$lib/api/client';
+import { clearApiCache, createHttpApi } from '$lib/api/client';
 import type { QueueItem } from '$lib/api/client';
 import type { DiskSpaceResource, RootFolderResource } from '$lib/api/common';
 import type { SeriesResource } from '$lib/api/sonarr';
@@ -31,6 +31,7 @@ class LibraryStore {
 		if (this.#inflight) return this.#inflight;
 		if (!force && this.loadedAt && Date.now() - this.loadedAt < staleMs) return Promise.resolve();
 
+		if (force) clearApiCache();
 		this.loading = true;
 		const api = createHttpApi(fetch);
 		this.#inflight = Promise.allSettled([

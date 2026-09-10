@@ -6,6 +6,7 @@
 // if one app is not configured its slice is simply empty. If neither is configured the
 // call throws. There is no bundled fallback data.
 
+import { browser } from '$app/environment';
 import type {
 	BackupResource,
 	BlocklistResource,
@@ -36,6 +37,34 @@ import type {
 } from './radarr';
 
 export type WantedKind = 'series' | 'movie';
+
+export interface DeleteOptions {
+	deleteFiles: boolean;
+	addImportExclusion: boolean;
+}
+
+/** Fields the Sonarr `PUT /series/editor` bulk endpoint accepts. All optional; only what is set changes. */
+export interface SeriesEditorChanges {
+	monitored?: boolean;
+	qualityProfileId?: number;
+	rootFolderPath?: string;
+	seasonFolder?: boolean;
+	tags?: number[];
+	applyTags?: 'add' | 'remove' | 'replace';
+	/** Physically move existing files when rootFolderPath changes. */
+	moveFiles?: boolean;
+}
+
+/** Fields the Radarr `PUT /movie/editor` bulk endpoint accepts. */
+export interface MovieEditorChanges {
+	monitored?: boolean;
+	qualityProfileId?: number;
+	minimumAvailability?: string;
+	rootFolderPath?: string;
+	tags?: number[];
+	applyTags?: 'add' | 'remove' | 'replace';
+	moveFiles?: boolean;
+}
 
 export type QueueItem = SonarrQueueResource | RadarrQueueResource;
 export type HistoryItem = SonarrHistoryResource | RadarrHistoryResource;
@@ -97,15 +126,26 @@ export interface AtlasApi {
 	addSeries(series: SeriesResource): Promise<SeriesResource>;
 	addMovie(movie: MovieResource): Promise<MovieResource>;
 
+	/** Remove a title from the library, optionally its files and a re-add exclusion. */
+	deleteSeries(id: number, opts: DeleteOptions): Promise<void>;
+	deleteMovie(id: number, opts: DeleteOptions): Promise<void>;
+
+	/** Bulk-edit many titles at once (Mass Editor). Returns the updated resources. */
+	editSeries(seriesIds: number[], changes: SeriesEditorChanges): Promise<SeriesResource[]>;
+	editMovies(movieIds: number[], changes: MovieEditorChanges): Promise<MovieResource[]>;
+	/** Bulk-remove many titles at once. */
+	bulkDeleteSeries(seriesIds: number[], opts: DeleteOptions): Promise<void>;
+	bulkDeleteMovies(movieIds: number[], opts: DeleteOptions): Promise<void>;
+
 	/** Pass a `kind` to scope to one app; omit for both merged. */
 	getRootFolders(kind?: WantedKind): Promise<RootFolderResource[]>;
 	getDiskSpace(): Promise<DiskSpaceResource[]>;
-	getHealth(): Promise<HealthResource[]>;
+	getHealth(kind?: WantedKind): Promise<HealthResource[]>;
 	getSystemStatus(): Promise<{ sonarr: SystemResource | null; radarr: SystemResource | null }>;
-	getTasks(): Promise<TaskResource[]>;
-	getUpdates(): Promise<UpdateResource[]>;
-	getLogFiles(): Promise<LogFileResource[]>;
-	getBackups(): Promise<BackupResource[]>;
+	getTasks(kind?: WantedKind): Promise<TaskResource[]>;
+	getUpdates(kind?: WantedKind): Promise<UpdateResource[]>;
+	getLogFiles(kind?: WantedKind): Promise<LogFileResource[]>;
+	getBackups(kind?: WantedKind): Promise<BackupResource[]>;
 	getQualityProfiles(kind?: WantedKind): Promise<QualityProfileResource[]>;
 
 	lookupSeries(term: string): Promise<SeriesResource[]>;
@@ -127,13 +167,28 @@ export class AppNotConfigured extends Error {
 	}
 }
 
+// Browser-only response cache for GETs. Keyed by full URL, so it is shared across
+// every `createHttpApi()` instance. Client-side navigations reuse recent data
+// instead of re-hitting the proxy; the server (SSR) path never touches this.
+const CLIENT_TTL = 45_000;
+const clientCache = new Map<string, { at: number; value: unknown }>();
+const inflight = new Map<string, Promise<unknown>>();
+
+/** Drop every cached response. Call after a write so the next read is fresh. */
+export function clearApiCache(): void {
+	clientCache.clear();
+	inflight.clear();
+}
+
 function makeProxy(app: 'sonarr' | 'radarr', fetchFn: FetchFn) {
-	return async function proxy<T>(
+	return function proxy<T>(
 		path: string,
 		opts: {
 			method?: string;
 			body?: unknown;
 			query?: Record<string, string | number | boolean | undefined>;
+			/** Client cache lifetime in ms; 0 disables. GET only. Default 45s. */
+			cacheMs?: number;
 		} = {}
 	): Promise<T> {
 		const qs = new URLSearchParams();
@@ -141,17 +196,40 @@ function makeProxy(app: 'sonarr' | 'radarr', fetchFn: FetchFn) {
 			if (v !== undefined) qs.set(k, String(v));
 		}
 		const url = `/api/${app}/${path}${qs.size ? `?${qs}` : ''}`;
-		const res = await fetchFn(url, {
-			method: opts.method ?? 'GET',
-			headers: opts.body !== undefined ? { 'content-type': 'application/json' } : undefined,
-			body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
-		});
-		if (res.status === 503) throw new AppNotConfigured(app);
-		const data = await res.json().catch(() => null);
-		if (!res.ok) {
-			throw new Error(`${app} ${path} failed: ${res.status} ${JSON.stringify(data)}`);
+		const method = opts.method ?? 'GET';
+		const ttl = opts.cacheMs ?? CLIENT_TTL;
+		const cacheable = browser && method === 'GET' && ttl > 0;
+
+		if (cacheable) {
+			const hit = clientCache.get(url);
+			if (hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.value as T);
+			const pending = inflight.get(url);
+			if (pending) return pending as Promise<T>;
 		}
-		return data as T;
+
+		const run = (async () => {
+			const res = await fetchFn(url, {
+				method,
+				headers: opts.body !== undefined ? { 'content-type': 'application/json' } : undefined,
+				body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+			});
+			if (res.status === 503) throw new AppNotConfigured(app);
+			const data = await res.json().catch(() => null);
+			if (!res.ok) {
+				throw new Error(`${app} ${path} failed: ${res.status} ${JSON.stringify(data)}`);
+			}
+			return data;
+		})();
+
+		if (cacheable) {
+			inflight.set(url, run);
+			run
+				.then((value) => clientCache.set(url, { at: Date.now(), value }))
+				.catch(() => {})
+				.finally(() => inflight.delete(url));
+		}
+
+		return run as Promise<T>;
 	};
 }
 
@@ -255,11 +333,13 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			both<QueueItem>(
 				() =>
 					s<Paged<SonarrQueueResource>>('queue', {
-						query: { pageSize: 200, includeSeries: true, includeEpisode: true }
+						query: { pageSize: 200, includeSeries: true, includeEpisode: true },
+						cacheMs: 10_000
 					}).then(records),
 				() =>
 					r<Paged<RadarrQueueResource>>('queue', {
-						query: { pageSize: 200, includeMovie: true }
+						query: { pageSize: 200, includeMovie: true },
+						cacheMs: 10_000
 					}).then(records)
 			),
 
@@ -313,26 +393,100 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 
 		getReleases: (subject) => {
 			if (subject.kind === 'movie') {
-				return r<RadarrReleaseResource[]>('release', { query: { movieId: subject.movieId } });
+				return r<RadarrReleaseResource[]>('release', {
+					query: { movieId: subject.movieId },
+					cacheMs: 0
+				});
 			}
 			const query =
 				subject.kind === 'episode'
 					? { seriesId: subject.seriesId, episodeId: subject.episodeId }
 					: { seriesId: subject.seriesId };
-			return s<SonarrReleaseResource[]>('release', { query });
+			return s<SonarrReleaseResource[]>('release', { query, cacheMs: 0 });
 		},
 
 		pushRelease: (kind, guid, indexerId) =>
-			forKind(kind)('release', { method: 'POST', body: { guid, indexerId } }).then(() => {}),
+			forKind(kind)('release', { method: 'POST', body: { guid, indexerId } }).then(() => {
+				clearApiCache();
+			}),
 
 		updateSeries: (series) =>
-			s<SeriesResource>(`series/${series.id}`, { method: 'PUT', body: series }),
-		updateMovie: (movie) => r<MovieResource>(`movie/${movie.id}`, { method: 'PUT', body: movie }),
+			s<SeriesResource>(`series/${series.id}`, { method: 'PUT', body: series }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
+		updateMovie: (movie) =>
+			r<MovieResource>(`movie/${movie.id}`, { method: 'PUT', body: movie }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
 		setEpisodeMonitored: (episodeIds, monitored) =>
-			s('episode/monitor', { method: 'PUT', body: { episodeIds, monitored } }).then(() => {}),
+			s('episode/monitor', { method: 'PUT', body: { episodeIds, monitored } }).then(() => {
+				clearApiCache();
+			}),
 
-		addSeries: (series) => s<SeriesResource>('series', { method: 'POST', body: series }),
-		addMovie: (movie) => r<MovieResource>('movie', { method: 'POST', body: movie }),
+		addSeries: (series) =>
+			s<SeriesResource>('series', { method: 'POST', body: series }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
+		addMovie: (movie) =>
+			r<MovieResource>('movie', { method: 'POST', body: movie }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
+
+		deleteSeries: (id, o) =>
+			s(`series/${id}`, {
+				method: 'DELETE',
+				query: { deleteFiles: o.deleteFiles, addImportExclusion: o.addImportExclusion }
+			}).then(() => {
+				clearApiCache();
+			}),
+		deleteMovie: (id, o) =>
+			r(`movie/${id}`, {
+				method: 'DELETE',
+				query: { deleteFiles: o.deleteFiles, addImportExclusion: o.addImportExclusion }
+			}).then(() => {
+				clearApiCache();
+			}),
+
+		editSeries: (seriesIds, changes) =>
+			s<SeriesResource[]>('series/editor', { method: 'PUT', body: { seriesIds, ...changes } }).then(
+				(v) => {
+					clearApiCache();
+					return v ?? [];
+				}
+			),
+		editMovies: (movieIds, changes) =>
+			r<MovieResource[]>('movie/editor', { method: 'PUT', body: { movieIds, ...changes } }).then(
+				(v) => {
+					clearApiCache();
+					return v ?? [];
+				}
+			),
+		bulkDeleteSeries: (seriesIds, o) =>
+			s('series/editor', {
+				method: 'DELETE',
+				body: {
+					seriesIds,
+					deleteFiles: o.deleteFiles,
+					addImportExclusion: o.addImportExclusion
+				}
+			}).then(() => {
+				clearApiCache();
+			}),
+		bulkDeleteMovies: (movieIds, o) =>
+			r('movie/editor', {
+				method: 'DELETE',
+				body: {
+					movieIds,
+					deleteFiles: o.deleteFiles,
+					addImportExclusion: o.addImportExclusion
+				}
+			}).then(() => {
+				clearApiCache();
+			}),
 
 		getRootFolders: (kind) =>
 			kind
@@ -346,11 +500,13 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 				() => s('diskspace'),
 				() => r('diskspace')
 			),
-		getHealth: () =>
-			both<HealthResource>(
-				() => s('health'),
-				() => r('health')
-			),
+		getHealth: (kind) =>
+			kind
+				? forKind(kind)<HealthResource[]>('health')
+				: both<HealthResource>(
+						() => s('health'),
+						() => r('health')
+					),
 
 		getSystemStatus: async () => {
 			const [sonarr, radarr] = await Promise.all([
@@ -360,26 +516,34 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			return { sonarr: sonarr[0] ?? null, radarr: radarr[0] ?? null };
 		},
 
-		getTasks: () =>
-			both<TaskResource>(
-				() => s('system/task'),
-				() => r('system/task')
-			),
-		getUpdates: () =>
-			both<UpdateResource>(
-				() => s('update'),
-				() => r('update')
-			),
-		getLogFiles: () =>
-			both<LogFileResource>(
-				() => s('log/file'),
-				() => r('log/file')
-			),
-		getBackups: () =>
-			both<BackupResource>(
-				() => s('system/backup'),
-				() => r('system/backup')
-			),
+		getTasks: (kind) =>
+			kind
+				? forKind(kind)<TaskResource[]>('system/task')
+				: both<TaskResource>(
+						() => s('system/task'),
+						() => r('system/task')
+					),
+		getUpdates: (kind) =>
+			kind
+				? forKind(kind)<UpdateResource[]>('update')
+				: both<UpdateResource>(
+						() => s('update'),
+						() => r('update')
+					),
+		getLogFiles: (kind) =>
+			kind
+				? forKind(kind)<LogFileResource[]>('log/file')
+				: both<LogFileResource>(
+						() => s('log/file'),
+						() => r('log/file')
+					),
+		getBackups: (kind) =>
+			kind
+				? forKind(kind)<BackupResource[]>('system/backup')
+				: both<BackupResource>(
+						() => s('system/backup'),
+						() => r('system/backup')
+					),
 		getQualityProfiles: (kind) =>
 			kind
 				? forKind(kind)<QualityProfileResource[]>('qualityprofile')
@@ -391,7 +555,11 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 		lookupSeries: (term) => s<SeriesResource[]>('series/lookup', { query: { term } }),
 		lookupMovie: (term) => r<MovieResource[]>('movie/lookup', { query: { term } }),
 
-		sendCommand: (app, body) => forKind(app)<CommandResource>('command', { method: 'POST', body })
+		sendCommand: (app, body) =>
+			forKind(app)<CommandResource>('command', { method: 'POST', body }).then((v) => {
+				clearApiCache();
+				return v;
+			})
 	};
 }
 
