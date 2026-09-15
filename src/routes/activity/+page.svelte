@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { api } from '$lib/api/client';
-	import type { QueueItem } from '$lib/api/client';
+	import type { QueueItem, WantedKind } from '$lib/api/client';
 	import { store } from '$lib/stores/store.svelte';
 	import { library } from '$lib/stores/library.svelte';
 	import {
@@ -22,21 +23,22 @@
 	const fromUrl = page.url.searchParams.get('tab');
 	let tab = $state<Tab>(fromUrl === 'history' || fromUrl === 'blocklist' ? fromUrl : 'queue');
 	let histFilter = $state<HistFilter>('All');
-	let paused = $state(false);
 	let now = $state(new Date());
 
 	// Live queue poll (30s), same pattern as the Dashboard.
 	let liveQueue = $state<QueueItem[] | null>(null);
 	const queue = $derived([...store.extraQueue, ...(liveQueue ?? library.queue)]);
 
+	async function refreshQueue() {
+		try {
+			liveQueue = await api.getQueue();
+		} catch {
+			/* keep last snapshot */
+		}
+	}
+
 	onMount(() => {
-		const poll = setInterval(async () => {
-			try {
-				liveQueue = await api.getQueue();
-			} catch {
-				/* keep last snapshot */
-			}
-		}, 30_000);
+		const poll = setInterval(refreshQueue, 30_000);
 		const tick = setInterval(() => (now = new Date()), 30_000);
 		return () => {
 			clearInterval(poll);
@@ -64,32 +66,101 @@
 		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
 	}
 
-	function pauseAll() {
-		paused = !paused;
-		store.toast(paused ? 'Queue paused' : 'Queue resumed', 'var(--warn)');
+	/** Queue and blocklist rows only carry `tag`; series is always Sonarr, movie always Radarr. */
+	function appOf(tag: 'TV' | 'M'): WantedKind {
+		return tag === 'TV' ? 'series' : 'movie';
 	}
 
-	function queueActions(title: string) {
+	// ---- queue ----
+	let qSel = $state<Record<string, boolean>>({});
+	const qSelIds = $derived(Object.keys(qSel).filter((k) => qSel[k]));
+
+	function toggleQueueSel(key: string) {
+		qSel = { ...qSel, [key]: !qSel[key] };
+	}
+
+	async function removeQueueItem(q: (typeof qRows)[number], blocklist: boolean) {
+		try {
+			await api.removeFromQueue(appOf(q.tag), Number(q.key), { blocklist });
+			store.toast(
+				blocklist ? `Removed & blocklisted · ${q.title}` : `Removed from queue · ${q.title}`,
+				blocklist ? 'var(--err)' : 'var(--neutral)'
+			);
+			await refreshQueue();
+		} catch {
+			store.toast('Could not remove from queue', 'var(--err)');
+		}
+	}
+
+	function confirmRemoveAndBlocklist(q: (typeof qRows)[number]) {
+		store.openConfirm({
+			title: 'Remove & blocklist?',
+			body: `Remove "${q.title}" from the queue and blocklist it, so it won't be grabbed again.`,
+			confirmLabel: 'Remove',
+			danger: true,
+			onConfirm: () => removeQueueItem(q, true)
+		});
+	}
+
+	function removeSelectedQueue() {
+		const rows = qSelIds.map((k) => qRows.find((r) => r.key === k)).filter((r) => !!r);
+		if (rows.length === 0) {
+			store.toast('Nothing selected', 'var(--neutral)');
+			return;
+		}
+		store.openConfirm({
+			title: `Remove ${rows.length} item${rows.length === 1 ? '' : 's'}?`,
+			body: 'Remove the selected downloads from the queue.',
+			confirmLabel: 'Remove',
+			danger: true,
+			onConfirm: async () => {
+				const seriesIds = rows.filter((r) => r.tag === 'TV').map((r) => Number(r.key));
+				const movieIds = rows.filter((r) => r.tag === 'M').map((r) => Number(r.key));
+				await Promise.all([
+					seriesIds.length
+						? api.bulkRemoveFromQueue('series', seriesIds, { blocklist: false })
+						: null,
+					movieIds.length ? api.bulkRemoveFromQueue('movie', movieIds, { blocklist: false }) : null
+				]);
+				qSel = {};
+				store.toast(`Removed ${rows.length} item${rows.length === 1 ? '' : 's'}`, 'var(--neutral)');
+				await refreshQueue();
+			}
+		});
+	}
+
+	function queueActions(q: (typeof qRows)[number]) {
 		return [
-			{
-				icon: 'pause',
-				label: 'Pause',
-				onClick: () => store.toast(`Paused · ${title}`, 'var(--warn)')
-			},
+			{ icon: 'pause', label: 'Pause', onClick: () => notYet('Pause') },
 			{ icon: 'import', label: 'Manual Import', onClick: () => notYet('Manual import') },
 			{
 				icon: 'block',
 				label: 'Remove & blocklist',
 				tone: 'danger',
-				onClick: () => notYet('Remove & blocklist')
+				onClick: () => confirmRemoveAndBlocklist(q)
 			},
 			{
 				icon: 'del',
 				label: 'Remove from queue',
 				tone: 'danger',
-				onClick: () => notYet('Remove from queue')
+				onClick: () => removeQueueItem(q, false)
 			}
 		];
+	}
+
+	// ---- history ----
+	function markFailed(r: (typeof hRows)[number]) {
+		store.openConfirm({
+			title: 'Mark as failed?',
+			body: `Mark "${r.title}" as a failed download. Sonarr/Radarr will blocklist it and search again.`,
+			confirmLabel: 'Mark failed',
+			danger: true,
+			onConfirm: async () => {
+				await api.markHistoryFailed(r.kind, r.id);
+				store.toast(`Marked as failed · ${r.title}`, 'var(--err)');
+				await invalidateAll();
+			}
+		});
 	}
 
 	function historyActions(r: (typeof hRows)[number]) {
@@ -104,19 +175,52 @@
 				icon: 'block',
 				label: 'Mark as Failed',
 				tone: r.eventType === 'downloadFailed' ? 'danger' : undefined,
-				onClick: () => notYet('Mark as failed')
+				onClick: () => markFailed(r)
 			}
 		];
 	}
 
-	const blocklistActions = [
-		{
-			icon: 'del',
-			label: 'Remove from blocklist',
-			tone: 'danger',
-			onClick: () => notYet('Remove from blocklist')
+	// ---- blocklist ----
+	async function removeBlocklistEntry(b: (typeof bRows)[number]) {
+		try {
+			await api.removeFromBlocklist(appOf(b.tag), Number(b.key));
+			store.toast(`Removed from blocklist · ${b.release}`, 'var(--neutral)');
+			await invalidateAll();
+		} catch {
+			store.toast('Could not remove from blocklist', 'var(--err)');
 		}
-	];
+	}
+
+	function clearBlocklist() {
+		if (bRows.length === 0) return;
+		store.openConfirm({
+			title: 'Clear the blocklist?',
+			body: `Remove all ${bRows.length} blocklisted release${bRows.length === 1 ? '' : 's'}, so they can be grabbed again.`,
+			confirmLabel: 'Clear',
+			danger: true,
+			onConfirm: async () => {
+				const seriesIds = bRows.filter((b) => b.tag === 'TV').map((b) => Number(b.key));
+				const movieIds = bRows.filter((b) => b.tag === 'M').map((b) => Number(b.key));
+				await Promise.all([
+					seriesIds.length ? api.bulkRemoveFromBlocklist('series', seriesIds) : null,
+					movieIds.length ? api.bulkRemoveFromBlocklist('movie', movieIds) : null
+				]);
+				store.toast('Blocklist cleared', 'var(--neutral)');
+				await invalidateAll();
+			}
+		});
+	}
+
+	function blocklistActions(b: (typeof bRows)[number]) {
+		return [
+			{
+				icon: 'del',
+				label: 'Remove from blocklist',
+				tone: 'danger',
+				onClick: () => removeBlocklistEntry(b)
+			}
+		];
+	}
 </script>
 
 <h1 style="margin:0 0 14px;font-size:24px;font-weight:600;letter-spacing:-.02em">Activity</h1>
@@ -143,17 +247,20 @@
 	<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
 		<button
 			type="button"
-			onclick={() => store.toast('Nothing selected', 'var(--neutral)')}
+			onclick={removeSelectedQueue}
+			disabled={qSelIds.length === 0}
 			class="at-bdh"
-			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>Remove Selected</button
+			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out;opacity:{qSelIds.length ===
+			0
+				? '.5'
+				: '1'}">Remove Selected{qSelIds.length ? ` (${qSelIds.length})` : ''}</button
 		>
 		<button
 			type="button"
-			onclick={pauseAll}
+			onclick={() => notYet('Pause all')}
 			class="at-bdh"
 			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>{paused ? 'Resume all' : 'Pause all'}</button
+			>Pause all</button
 		>
 		<div style="flex:1"></div>
 		<span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--muted)"
@@ -171,6 +278,19 @@
 					style="padding:14px 16px;border-bottom:1px solid var(--bd);transition:background 120ms ease-out"
 				>
 					<div style="display:flex;align-items:center;gap:12px">
+						<button
+							type="button"
+							onclick={() => toggleQueueSel(q.key)}
+							aria-label={qSel[q.key] ? 'Deselect' : 'Select'}
+							style="flex:none;display:grid;place-items:center;width:15px;height:15px;padding:0;border-radius:4px;border:1px solid {qSel[
+								q.key
+							]
+								? 'var(--inv)'
+								: 'var(--bd)'};background:{qSel[q.key]
+								? 'var(--inv)'
+								: 'transparent'};color:var(--invfg);font-size:10px;cursor:pointer"
+							>{qSel[q.key] ? '✓' : ''}</button
+						>
 						<span
 							style="flex:none;width:22px;text-align:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;padding:2px 0;border-radius:4px;border:1px solid var(--bd);color:var(--muted)"
 							>{q.tag}</span
@@ -184,7 +304,7 @@
 							style="flex:none;font-size:11px;font-weight:500;padding:2px 7px;border-radius:6px;background:{q.badgeBg};color:{q.badgeFg}"
 							>{q.status}</span
 						>
-						<div style="flex:none"><ActionCluster actions={queueActions(q.title)} /></div>
+						<div style="flex:none"><ActionCluster actions={queueActions(q)} /></div>
 					</div>
 					<div
 						style="height:4px;border-radius:6px;background:var(--bd);margin-top:10px;overflow:hidden"
@@ -291,10 +411,13 @@
 	<div style="display:flex;gap:8px;margin-bottom:12px">
 		<button
 			type="button"
-			onclick={() => notYet('Clear blocklist')}
+			onclick={clearBlocklist}
+			disabled={bRows.length === 0}
 			class="at-bdh"
-			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--err);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>Clear all</button
+			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--err);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out;opacity:{bRows.length ===
+			0
+				? '.5'
+				: '1'}">Clear all</button
 		>
 	</div>
 
@@ -324,7 +447,7 @@
 						style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
 						>{b.ago}</span
 					>
-					<div style="flex:none"><ActionCluster actions={blocklistActions} /></div>
+					<div style="flex:none"><ActionCluster actions={blocklistActions(b)} /></div>
 				</div>
 			{/each}
 		</div>

@@ -110,9 +110,19 @@ Renders three tabs:
   it was swapped for "Deleted".
 - Blocklist: `blocklistRows`; a "Clear all" button.
 
-Actions are all stubbed toasts (the design's Activity is toast-only, and Atlas
-defers destructive operations). The exception is the History "Details" toast,
-which shows the real quality, score and indexer. Data on all three tabs is live.
+Queue rows carry a checkbox (`qSel`); Remove Selected, per-row Remove from
+queue and Remove & blocklist (`DELETE /queue/{id}` or `/queue/bulk`, with
+`removeFromClient` and `blocklist` query flags) are real. History's Mark as
+Failed calls `POST /history/failed/{id}`. Blocklist's per-row remove and
+Clear all call `DELETE /blocklist/{id}` or `/blocklist/bulk`. Blocklist and
+bulk-queue removals, Mark as Failed and Clear all confirm first through the
+shared `ConfirmModal`; single removes don't, matching upstream Sonarr/Radarr.
+Pause and per-item Manual Import stay toasts: pausing is a download-client
+capability the *arr REST API doesn't expose generically, and a queue item's
+Manual Import would need a bigger per-file quality/episode reassignment UI
+than the Detail page's folder-scan version. The History "Details" action is a
+toast showing the real quality, score and indexer. Data on all three tabs is
+live.
 
 ---
 

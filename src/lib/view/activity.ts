@@ -235,6 +235,7 @@ export function matchesHistFilter(eventType: string, f: HistFilter): boolean {
 
 export interface HistoryRow {
 	key: string;
+	id: number;
 	kind: 'series' | 'movie';
 	tag: 'TV' | 'M';
 	event: string;
@@ -279,6 +280,7 @@ export function historyRows(
 		const scoreNum = h.customFormatScore ?? 0;
 		return {
 			key: `${h.eventType}-${h.id}-${i}`,
+			id: h.id,
 			kind,
 			tag,
 			event: eventLabel(h.eventType),

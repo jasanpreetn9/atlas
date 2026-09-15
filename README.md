@@ -22,10 +22,11 @@ live data.
 Action buttons are wired to the live instances where that is safe (monitor
 toggles, searches, refresh, interactive-search grab, add, edit and delete a
 title, delete an episode or movie file, preview and run a rename, media info,
-edit a file's quality/language, manual import for a series, and the Library
-mass editor for monitor, quality profile, root folder and delete). The
-remaining multi-step flows (mass tags, restart, shutdown) show a "not wired
-up yet" toast for now.
+edit a file's quality/language, manual import for a series, the Library mass
+editor for monitor, quality profile, root folder and delete, and Activity's
+queue and blocklist removals and mark-as-failed). The remaining multi-step
+flows (mass tags, pause, restart, shutdown) show a "not wired up yet" toast
+for now.
 
 ## To do
 
@@ -36,7 +37,7 @@ Screens not built:
 Actions that currently only show a toast:
 
 - [ ] Library mass editor: Tags (Monitor, Unmonitor, Quality Profile, Root Folder and Delete are real via the `/series/editor` and `/movie/editor` endpoints)
-- [ ] Activity: Remove from queue, Remove & blocklist, Pause, Mark as Failed, Remove from blocklist, Clear all, Remove Selected
+- [ ] Activity: Pause / Pause all (no generic Sonarr/Radarr endpoint; pausing is a download-client capability, not exposed by the *arr REST API), Manual Import from a queue item (Remove from queue, Remove & blocklist, Remove Selected, Mark as Failed, Remove from blocklist and Clear all are all real now)
 - [ ] System: Restart, Shutdown
 
 Polish:
@@ -45,7 +46,6 @@ Polish:
 - [ ] Sort-direction toggle (asc / desc)
 - [ ] Command palette (Cmd+K)
 - [ ] Real custom-filter builder (currently adds a placeholder chip)
-- [ ] Confirm dialogs for the remaining destructive actions above (Detail's file deletes already confirm, via the shared `ConfirmModal`)
 - [ ] `/add` result-card poster thumbnails render faint against the dark box
 
 ## Quick start

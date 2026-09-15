@@ -200,6 +200,18 @@ export interface AtlasApi {
 		app: WantedKind,
 		body: { name: string } & Record<string, unknown>
 	): Promise<CommandResource>;
+
+	/** Remove one queue item; blocklist keeps it from being grabbed again. */
+	removeFromQueue(app: WantedKind, id: number, opts: { blocklist: boolean }): Promise<void>;
+	/** Remove many queue items at once. */
+	bulkRemoveFromQueue(app: WantedKind, ids: number[], opts: { blocklist: boolean }): Promise<void>;
+
+	/** Mark a history entry as a failed download; blocklists it and re-searches. */
+	markHistoryFailed(app: WantedKind, historyId: number): Promise<void>;
+
+	/** Remove one blocklist entry, or every one of the given ids at once. */
+	removeFromBlocklist(app: WantedKind, id: number): Promise<void>;
+	bulkRemoveFromBlocklist(app: WantedKind, ids: number[]): Promise<void>;
 }
 
 type FetchFn = typeof fetch;
@@ -668,6 +680,36 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			forKind(app)<CommandResource>('command', { method: 'POST', body }).then((v) => {
 				clearApiCache();
 				return v;
+			}),
+
+		removeFromQueue: (app, id, opts) =>
+			forKind(app)(`queue/${id}`, {
+				method: 'DELETE',
+				query: { removeFromClient: true, blocklist: opts.blocklist }
+			}).then(() => {
+				clearApiCache();
+			}),
+		bulkRemoveFromQueue: (app, ids, opts) =>
+			forKind(app)('queue/bulk', {
+				method: 'DELETE',
+				body: { ids },
+				query: { removeFromClient: true, blocklist: opts.blocklist }
+			}).then(() => {
+				clearApiCache();
+			}),
+
+		markHistoryFailed: (app, historyId) =>
+			forKind(app)(`history/failed/${historyId}`, { method: 'POST' }).then(() => {
+				clearApiCache();
+			}),
+
+		removeFromBlocklist: (app, id) =>
+			forKind(app)(`blocklist/${id}`, { method: 'DELETE' }).then(() => {
+				clearApiCache();
+			}),
+		bulkRemoveFromBlocklist: (app, ids) =>
+			forKind(app)('blocklist/bulk', { method: 'DELETE', body: { ids } }).then(() => {
+				clearApiCache();
 			})
 	};
 }
