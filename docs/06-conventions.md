@@ -32,19 +32,21 @@ The original design prototype is the source of truth for layout.
 
 ## Real vs. stubbed
 
-Some actions are wired to the live instances; others show a `"... isn't wired up
-yet"` toast.
+Nearly everything is wired to the live instances now; `notYet(label)` (the
+`"... isn't wired up yet"` toast) only remains for Manual Import on a movie
+queue row (`/activity`) - Radarr has no manual-import endpoint equivalent
+wired up client-side, so there's nothing to call yet.
 
-Real: reads, monitor toggles, `*Search` commands, `RefreshSeries` /
-`RefreshMovie`, interactive search, and Grab.
+Pause / Pause all on the queue tab were removed outright rather than stubbed:
+pausing a download is a download-client capability, not something the *arr
+REST API exposes, so there's no realistic call to eventually wire up.
 
-Stubbed: anything destructive or multi-step, including Manual Import, Preview
-Rename, Delete (title or file), queue removal, blocklist edits, and the bulk-edit
-dialog.
-
-When adding an action, make it real if it's a safe read or an idempotent write.
-Stub it with `notYet(label)` (or a local toast) if it's destructive and there's
-no confirm UI yet. Say which in the PR.
+When adding an action, make it real if it's a safe read or an idempotent
+write, or if the destructive path already has confirm UI (`ConfirmModal`).
+Stub it with `notYet(label)` only when the backend call genuinely doesn't
+exist yet and confirm UI hasn't been built. If an action can _never_ become
+real (no matching API endpoint, ever), remove it instead of stubbing it - say
+which, and why, in the PR.
 
 ## Security constraints (do not regress)
 

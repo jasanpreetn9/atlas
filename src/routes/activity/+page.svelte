@@ -131,8 +131,13 @@
 
 	function queueActions(q: (typeof qRows)[number]) {
 		return [
-			{ icon: 'pause', label: 'Pause', onClick: () => notYet('Pause') },
-			{ icon: 'import', label: 'Manual Import', onClick: () => notYet('Manual import') },
+			{
+				icon: 'import',
+				label: 'Manual Import',
+				onClick: q.manualImport
+					? () => store.openManualImport(q.manualImport!)
+					: () => notYet('Manual import')
+			},
 			{
 				icon: 'block',
 				label: 'Remove & blocklist',
@@ -254,13 +259,6 @@
 			0
 				? '.5'
 				: '1'}">Remove Selected{qSelIds.length ? ` (${qSelIds.length})` : ''}</button
-		>
-		<button
-			type="button"
-			onclick={() => notYet('Pause all')}
-			class="at-bdh"
-			style="height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>Pause all</button
 		>
 		<div style="flex:1"></div>
 		<span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--muted)"

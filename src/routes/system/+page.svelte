@@ -109,10 +109,6 @@
 
 	const healthCount = $derived(data.health.filter((h) => h.type !== 'ok').length);
 
-	function notYet(label: string) {
-		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
-	}
-
 	function appNames() {
 		return apps.map((k) => appLabel[k]).join(' and ');
 	}

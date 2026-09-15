@@ -68,9 +68,10 @@ links (TVDb/IMDb or TMDb/IMDb). Tabs are Seasons/Files and History.
 Real actions: monitor toggle for series, movie, season and episode (real PUT via
 `updateSeries` / `updateMovie` / `setEpisodeMonitored`); Automatic Search
 (`SeriesSearch` / `MoviesSearch` / `SeasonSearch` / `EpisodeSearch`); Interactive
-Search (opens the modal); Refresh & Scan (`RefreshSeries` / `RefreshMovie`).
-Stubbed toasts (`notYet(label)`): Manual Import, Preview Rename, Delete, Delete
-file, Edit quality.
+Search (opens the modal); Refresh & Scan (`RefreshSeries` / `RefreshMovie`);
+Manual Import (scans the series folder via `ManualImportModal`); Preview Rename
+(`RenamePreviewModal`); Delete (title or file); Edit quality/language on a file
+(no rename). Nothing on this page is stubbed.
 
 ---
 
@@ -102,8 +103,7 @@ Loads: `getHistory({ pageSize: 100 })`, `getBlocklist()`. The queue is the
 
 Renders three tabs:
 
-- Queue: `queueRow`; toolbar with Remove Selected, Pause all, and an auto-refresh
-  label.
+- Queue: `queueRow`; toolbar with Remove Selected and an auto-refresh label.
 - History: `historyRows` (ungrouped, one row per event); filter chips `All`,
   `Grabbed`, `Imported`, `Failed`, `Deleted` (`matchesHistFilter`). The design's
   fifth filter was "Upgraded", which has no reliable signal in real payloads, so
@@ -117,12 +117,14 @@ Failed calls `POST /history/failed/{id}`. Blocklist's per-row remove and
 Clear all call `DELETE /blocklist/{id}` or `/blocklist/bulk`. Blocklist and
 bulk-queue removals, Mark as Failed and Clear all confirm first through the
 shared `ConfirmModal`; single removes don't, matching upstream Sonarr/Radarr.
-Pause and per-item Manual Import stay toasts: pausing is a download-client
-capability the *arr REST API doesn't expose generically, and a queue item's
-Manual Import would need a bigger per-file quality/episode reassignment UI
-than the Detail page's folder-scan version. The History "Details" action is a
-toast showing the real quality, score and indexer. Data on all three tabs is
-live.
+There's no Pause / Pause all: pausing a download is a download-client
+capability, not something the *arr REST API exposes, so the buttons were
+removed rather than left as permanent toasts. Manual Import on a queue row
+opens the same `ManualImportModal` as the Detail page (scoped to that series'
+`outputPath`) for TV rows; movie rows stay a toast, since Radarr has no
+manual-import endpoint equivalent wired up client-side yet. The History
+"Details" action is a toast showing the real quality, score and indexer. Data
+on all three tabs is live.
 
 ---
 

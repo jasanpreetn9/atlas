@@ -211,10 +211,6 @@
 	});
 
 	// ---- actions ----
-	function notYet(label: string) {
-		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
-	}
-
 	function openDialog(mode: 'edit' | 'delete') {
 		const item = series ?? movie;
 		if (!item) return;

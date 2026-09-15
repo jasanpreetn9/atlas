@@ -32,6 +32,8 @@ export interface QueueRow {
 	status: string;
 	badgeBg: string;
 	badgeFg: string;
+	/** Set for TV rows only - Sonarr's manual-import endpoints have no Radarr equivalent. */
+	manualImport: { seriesId: number; seriesTitle: string; folder: string } | null;
 }
 
 const IMPORT_STATES = new Set(['importing', 'imported', 'importPending', 'importBlocked']);
@@ -45,12 +47,18 @@ export function queueRow(q: QueueItem): QueueRow {
 
 	let tag: 'TV' | 'M' = 'M';
 	let title = q.title ?? 'Unknown release';
+	let manualImport: QueueRow['manualImport'] = null;
 	if (isSonarr) {
 		tag = 'TV';
 		const s = (q as SonarrQueueResource).series;
 		const e = (q as SonarrQueueResource).episode;
 		if (s?.title && e) title = `${s.title} · ${episodeCode(e.seasonNumber, e.episodeNumber)}`;
 		else if (s?.title) title = s.title;
+		const seriesId = (q as SonarrQueueResource).seriesId ?? s?.id;
+		const folder = q.outputPath ?? s?.path;
+		if (seriesId != null && folder) {
+			manualImport = { seriesId, seriesTitle: s?.title ?? title, folder };
+		}
 	} else {
 		const m = (q as RadarrQueueResource).movie;
 		if (m?.title) title = `${m.title} (${m.year})`;
@@ -72,7 +80,8 @@ export function queueRow(q: QueueItem): QueueRow {
 		release: q.title ?? '',
 		status: importing ? 'Importing' : 'Downloading',
 		badgeBg: importing ? 'rgba(0,202,81,.10)' : 'rgba(0,112,243,.10)',
-		badgeFg: importing ? 'var(--ok)' : 'var(--accent)'
+		badgeFg: importing ? 'var(--ok)' : 'var(--accent)',
+		manualImport
 	};
 }
 
