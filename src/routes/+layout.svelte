@@ -17,6 +17,8 @@
 	import ConfirmModal from '$lib/components/modals/ConfirmModal.svelte';
 	import MediaInfoModal from '$lib/components/modals/MediaInfoModal.svelte';
 	import RenamePreviewModal from '$lib/components/modals/RenamePreviewModal.svelte';
+	import EditFileModal from '$lib/components/modals/EditFileModal.svelte';
+	import ManualImportModal from '$lib/components/modals/ManualImportModal.svelte';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -96,3 +98,5 @@
 <ConfirmModal />
 <MediaInfoModal />
 <RenamePreviewModal />
+<EditFileModal />
+<ManualImportModal />

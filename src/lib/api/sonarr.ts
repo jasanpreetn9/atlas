@@ -277,3 +277,25 @@ export interface RenamingResource {
 	existingPath: string | null;
 	newPath: string | null;
 }
+
+export interface ManualImportRejection {
+	reason: string | null;
+	type: 'warning' | 'error' | string;
+}
+
+/** One candidate file found by `GET /manualimport?seriesId=&folder=`, auto-matched to an episode. */
+export interface ManualImportResource {
+	id: number;
+	path: string | null;
+	relativePath: string | null;
+	folderName: string | null;
+	name: string | null;
+	size: number;
+	seriesId?: number | null;
+	episodes?: EpisodeResource[];
+	releaseGroup: string | null;
+	quality: QualityModel;
+	languages: Language[];
+	downloadId: string | null;
+	rejections: ManualImportRejection[];
+}

@@ -13,8 +13,11 @@ import type {
 	CommandResource,
 	DiskSpaceResource,
 	HealthResource,
+	Language,
 	LogFileResource,
 	PagingResource,
+	QualityDefinitionResource,
+	QualityModel,
 	QualityProfileResource,
 	RootFolderResource,
 	SystemResource,
@@ -24,6 +27,7 @@ import type {
 import type {
 	EpisodeFileResource,
 	EpisodeResource,
+	ManualImportResource,
 	RenamingResource,
 	SeriesResource,
 	SonarrHistoryResource,
@@ -31,6 +35,7 @@ import type {
 	SonarrReleaseResource
 } from './sonarr';
 import type {
+	MovieFileResource,
 	MovieRenamingResource,
 	MovieResource,
 	RadarrHistoryResource,
@@ -71,6 +76,18 @@ export interface MovieEditorChanges {
 /** One file `GET /rename` found not matching the current naming format. */
 export type RenameItem =
 	({ kind: 'series' } & RenamingResource) | ({ kind: 'movie' } & MovieRenamingResource);
+
+/** A manual-import candidate, edited down to what `POST /command ManualImport` needs back. */
+export interface ManualImportSubmission {
+	path: string;
+	folderName?: string | null;
+	seriesId: number;
+	episodeIds: number[];
+	quality: QualityModel;
+	languages: Language[];
+	releaseGroup?: string | null;
+	downloadId?: string | null;
+}
 
 export type QueueItem = SonarrQueueResource | RadarrQueueResource;
 export type HistoryItem = SonarrHistoryResource | RadarrHistoryResource;
@@ -151,6 +168,19 @@ export interface AtlasApi {
 	getRenamePreview(kind: WantedKind, id: number): Promise<RenameItem[]>;
 	/** Rename the given episode files (series) or every file for the movie. */
 	renameFiles(kind: WantedKind, id: number, episodeFileIds?: number[]): Promise<CommandResource>;
+
+	/** Correct a file's recorded quality/language without touching the file on disk. */
+	editEpisodeFile(file: EpisodeFileResource): Promise<EpisodeFileResource>;
+	editMovieFile(file: MovieFileResource): Promise<MovieFileResource>;
+	/** Every quality the app knows about, in ascending order. */
+	getQualityDefinitions(kind: WantedKind): Promise<QualityDefinitionResource[]>;
+	/** Every language the app knows about. */
+	getLanguages(kind: WantedKind): Promise<Language[]>;
+
+	/** Scan a series' folder for files not yet imported, matched to episodes where possible. */
+	getManualImportCandidates(seriesId: number, folder: string): Promise<ManualImportResource[]>;
+	/** Import the given candidates as-is (their auto-detected episode/quality/language). */
+	importSeriesFiles(files: ManualImportSubmission[]): Promise<CommandResource>;
 
 	/** Pass a `kind` to scope to one app; omit for both merged. */
 	getRootFolders(kind?: WantedKind): Promise<RootFolderResource[]>;
@@ -536,6 +566,36 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 						clearApiCache();
 						return v;
 					}),
+
+		editEpisodeFile: (file) =>
+			s<EpisodeFileResource>(`episodefile/${file.id}`, { method: 'PUT', body: file }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
+		editMovieFile: (file) =>
+			r<MovieFileResource>(`moviefile/${file.id}`, { method: 'PUT', body: file }).then((v) => {
+				clearApiCache();
+				return v;
+			}),
+		getQualityDefinitions: (kind) =>
+			forKind(kind)<QualityDefinitionResource[]>('qualitydefinition').then((xs) =>
+				[...xs].sort((a, b) => a.weight - b.weight)
+			),
+		getLanguages: (kind) => forKind(kind)<Language[]>('language'),
+
+		getManualImportCandidates: (seriesId, folder) =>
+			s<ManualImportResource[]>('manualimport', {
+				query: { seriesId, folder, filterExistingFiles: true },
+				cacheMs: 0
+			}),
+		importSeriesFiles: (files) =>
+			s<CommandResource>('command', {
+				method: 'POST',
+				body: { name: 'ManualImport', files, importMode: 'auto' }
+			}).then((v) => {
+				clearApiCache();
+				return v;
+			}),
 
 		getRootFolders: (kind) =>
 			kind

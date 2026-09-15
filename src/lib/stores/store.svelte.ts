@@ -5,6 +5,7 @@ import { browser } from '$app/environment';
 import { api } from '$lib/api/client';
 import type { QueueItem, ReleaseItem, SearchSubject, WantedKind } from '$lib/api/client';
 import type { EpisodeFileResource } from '$lib/api/sonarr';
+import type { MovieFileResource } from '$lib/api/radarr';
 import type { EpisodeRow } from '$lib/view/episodes';
 import type { MediaInfoTarget } from '$lib/view/mediainfo';
 
@@ -49,6 +50,16 @@ export interface RenameTarget {
 	kind: WantedKind;
 	id: number;
 	title: string;
+}
+
+export type EditFileTarget =
+	| { kind: 'series'; title: string; subtitle: string; file: EpisodeFileResource }
+	| { kind: 'movie'; title: string; subtitle: string; file: MovieFileResource };
+
+export interface ManualImportTarget {
+	seriesId: number;
+	seriesTitle: string;
+	folder: string;
 }
 
 export const EP_COLUMNS = [
@@ -141,6 +152,8 @@ class AtlasStore {
 	confirmBusy = $state(false);
 	mediaInfo = $state<MediaInfoTarget | null>(null);
 	renameTarget = $state<RenameTarget | null>(null);
+	editFileTarget = $state<EditFileTarget | null>(null);
+	manualImport = $state<ManualImportTarget | null>(null);
 
 	// ---- mutable session data ----
 	toasts = $state<Toast[]>([]);
@@ -236,6 +249,20 @@ class AtlasStore {
 	}
 	closeRename() {
 		this.renameTarget = null;
+	}
+
+	openEditFile(target: EditFileTarget) {
+		this.editFileTarget = target;
+	}
+	closeEditFile() {
+		this.editFileTarget = null;
+	}
+
+	openManualImport(target: ManualImportTarget) {
+		this.manualImport = target;
+	}
+	closeManualImport() {
+		this.manualImport = null;
 	}
 
 	toggleEpColumn(key: string) {

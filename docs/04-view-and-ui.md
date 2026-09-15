@@ -100,6 +100,23 @@ for whatever doesn't match the current naming format. Confirming calls
 series (specific episode file ids) or `RenameMovie` for a movie (all of its
 files).
 
+`EditFileModal.svelte` reads `store.editFileTarget` (a discriminated
+`{ kind: 'series' | 'movie'; file }`, so `file` narrows to an
+`EpisodeFileResource` or `MovieFileResource` without a cast) and fetches
+`api.getQualityDefinitions(kind)` / `api.getLanguages(kind)` for the pickers.
+Saving sends the whole file resource back through `editEpisodeFile` /
+`editMovieFile` (`PUT /episodefile` or `/moviefile`) with only `quality` and
+`languages` changed, correcting the record without touching the file on disk.
+
+`ManualImportModal.svelte` reads `store.manualImport` (`seriesId`,
+`seriesTitle`, `folder`, the series' own path) and fetches
+`api.getManualImportCandidates(seriesId, folder)` (`GET /manualimport`).
+Candidates Sonarr matched to an episode are pre-selected; ones it couldn't
+match are shown with a warning and can't be selected, since there is nowhere
+in this UI to assign one by hand. Confirming calls `api.importSeriesFiles`
+(`POST /command ManualImport`), passing each selected candidate's own
+auto-detected quality and language straight through.
+
 ---
 
 ## `src/lib/styles/atlas.css`

@@ -357,6 +357,15 @@
 		});
 	}
 
+	function openManualImport() {
+		if (!series) return;
+		store.openManualImport({
+			seriesId: series.id,
+			seriesTitle: series.title ?? '',
+			folder: series.path ?? ''
+		});
+	}
+
 	function episodeActions(row: EpisodeRow) {
 		return [
 			{
@@ -367,7 +376,7 @@
 			},
 			{ icon: 'search', label: 'Automatic Search', onClick: () => searchEpisode(row) },
 			{ icon: 'isearch', label: 'Interactive Search', onClick: () => openEpisodeSearch(row) },
-			{ icon: 'import', label: 'Manual Import', onClick: () => notYet('Manual import') },
+			{ icon: 'import', label: 'Manual Import', onClick: openManualImport },
 			{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: () => deleteEpisodeFile(row) }
 		];
 	}
@@ -414,12 +423,18 @@
 		store.openRename({ kind: data.kind, id: item.id, title: item.title ?? '' });
 	}
 
+	function editMovieFile() {
+		if (!movie?.movieFile) return;
+		store.openEditFile({
+			kind: 'movie',
+			title: movie.title ?? 'Movie',
+			subtitle: String(movie.year ?? ''),
+			file: movie.movieFile
+		});
+	}
+
 	const movieFileActions = [
-		{
-			icon: 'edit',
-			label: 'Edit quality / language',
-			onClick: () => notYet('Edit quality / language')
-		},
+		{ icon: 'edit', label: 'Edit quality / language', onClick: editMovieFile },
 		{ icon: 'info', label: 'Media info', onClick: showMovieMediaInfo },
 		{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: deleteMovieFile }
 	];

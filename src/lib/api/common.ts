@@ -62,6 +62,17 @@ export interface QualityProfileQualityItemResource {
 	allowed: boolean;
 }
 
+/** One entry from `GET /qualitydefinition`: every quality the app knows about. */
+export interface QualityDefinitionResource {
+	id: number;
+	quality: Quality;
+	title: string | null;
+	weight: number;
+	minSize?: number | null;
+	maxSize?: number | null;
+	preferredSize?: number | null;
+}
+
 export interface QualityProfileResource {
 	id: number;
 	name: string | null;
