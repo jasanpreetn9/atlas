@@ -32,21 +32,25 @@ The original design prototype is the source of truth for layout.
 
 ## Real vs. stubbed
 
-Nearly everything is wired to the live instances now; `notYet(label)` (the
-`"... isn't wired up yet"` toast) only remains for Manual Import on a movie
-queue row (`/activity`) - Radarr has no manual-import endpoint equivalent
-wired up client-side, so there's nothing to call yet.
+Everything wired up is real - there's no `notYet(label)` stub toast left
+anywhere in the app.
 
-Pause / Pause all on the queue tab were removed outright rather than stubbed:
-pausing a download is a download-client capability, not something the *arr
-REST API exposes, so there's no realistic call to eventually wire up.
+Two actions were removed outright instead of ever being stubbed, because
+there's no backend call to eventually wire up:
+
+- Pause / Pause all on the queue tab (`/activity`) - pausing a download is a
+  download-client capability, not something the *arr REST API exposes.
+- Manual Import on a movie queue row (`/activity`) - Radarr has no
+  manual-import endpoint equivalent wired up client-side. (TV queue rows
+  reuse the Detail page's `ManualImportModal`, scoped to the series'
+  `outputPath`.)
 
 When adding an action, make it real if it's a safe read or an idempotent
 write, or if the destructive path already has confirm UI (`ConfirmModal`).
-Stub it with `notYet(label)` only when the backend call genuinely doesn't
-exist yet and confirm UI hasn't been built. If an action can _never_ become
-real (no matching API endpoint, ever), remove it instead of stubbing it - say
-which, and why, in the PR.
+Stub it with `notYet(label)` only when the backend call plausibly exists
+later but confirm UI hasn't been built yet. If an action can _never_ become
+real (no matching API endpoint, ever), don't add it at all rather than
+stubbing it - say why in the PR.
 
 ## Security constraints (do not regress)
 

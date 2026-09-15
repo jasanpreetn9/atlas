@@ -62,10 +62,6 @@
 
 	const loadFailed = (key: string) => data.loadErrors.includes(key);
 
-	function notYet(label: string) {
-		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
-	}
-
 	/** Queue and blocklist rows only carry `tag`; series is always Sonarr, movie always Radarr. */
 	function appOf(tag: 'TV' | 'M'): WantedKind {
 		return tag === 'TV' ? 'series' : 'movie';
@@ -130,14 +126,15 @@
 	}
 
 	function queueActions(q: (typeof qRows)[number]) {
-		return [
-			{
+		const actions = [];
+		if (q.manualImport) {
+			actions.push({
 				icon: 'import',
 				label: 'Manual Import',
-				onClick: q.manualImport
-					? () => store.openManualImport(q.manualImport!)
-					: () => notYet('Manual import')
-			},
+				onClick: () => store.openManualImport(q.manualImport!)
+			});
+		}
+		actions.push(
 			{
 				icon: 'block',
 				label: 'Remove & blocklist',
@@ -150,7 +147,8 @@
 				tone: 'danger',
 				onClick: () => removeQueueItem(q, false)
 			}
-		];
+		);
+		return actions;
 	}
 
 	// ---- history ----

@@ -119,11 +119,12 @@ bulk-queue removals, Mark as Failed and Clear all confirm first through the
 shared `ConfirmModal`; single removes don't, matching upstream Sonarr/Radarr.
 There's no Pause / Pause all: pausing a download is a download-client
 capability, not something the *arr REST API exposes, so the buttons were
-removed rather than left as permanent toasts. Manual Import on a queue row
-opens the same `ManualImportModal` as the Detail page (scoped to that series'
-`outputPath`) for TV rows; movie rows stay a toast, since Radarr has no
-manual-import endpoint equivalent wired up client-side yet. The History
-"Details" action is a toast showing the real quality, score and indexer. Data
+removed rather than left as permanent toasts. TV queue rows get a Manual
+Import action that opens the same `ManualImportModal` as the Detail page
+(scoped to that series' `outputPath`); movie rows have no Manual Import
+action at all, since Radarr has no manual-import endpoint equivalent wired up
+client-side. The History "Details" action is a toast showing the real
+quality, score and indexer. Data
 on all three tabs is live.
 
 ---
