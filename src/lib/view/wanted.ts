@@ -5,7 +5,7 @@
 import type { WantedKind, HistoryItem } from '$lib/api/client';
 import type { EpisodeResource, SeriesResource } from '$lib/api/sonarr';
 import type { MovieResource } from '$lib/api/radarr';
-import { airLabel, episodeCode, relativeAge } from './format';
+import { agoLabel, airLabel, episodeCode, relativeAge } from './format';
 
 function isEpisode(r: EpisodeResource | MovieResource): r is EpisodeResource {
 	return 'seriesId' in r && 'episodeNumber' in r;
@@ -221,7 +221,7 @@ export function failureRows(
 				title: s?.title ?? h.sourceTitle ?? 'Unknown series',
 				code,
 				sub: 'grab failed',
-				whenLabel: `${relativeAge(h.date, now)} ago`,
+				whenLabel: agoLabel(h.date, now),
 				href: s ? `/library/s:${s.id}` : '',
 				search: { app: 'series', body: { name: 'EpisodeSearch', episodeIds: [h.episodeId] } }
 			});
@@ -237,7 +237,7 @@ export function failureRows(
 				title: m?.title ?? h.sourceTitle ?? 'Unknown movie',
 				code: m ? String(m.year) : '',
 				sub: 'grab failed',
-				whenLabel: `${relativeAge(h.date, now)} ago`,
+				whenLabel: agoLabel(h.date, now),
 				href: m ? `/library/m:${m.id}` : '',
 				search: { app: 'movie', body: { name: 'MoviesSearch', movieIds: [h.movieId] } }
 			});
