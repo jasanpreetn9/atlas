@@ -46,10 +46,13 @@ export async function proxyArr(
 	// longer than a normal request; give them room and skip the response cache.
 	const isReleaseSearch = path === 'release' || path.startsWith('release/');
 	const isQueue = path === 'queue' || path.startsWith('queue/');
+	// A rename preview must reflect the last delete/rename immediately, not up to
+	// 15s later, so the Preview Rename modal never shows an already-handled file.
+	const isRename = path === 'rename' || path.startsWith('rename/');
 	const timeoutMs = isReleaseSearch ? 55_000 : undefined;
 	// Queue changes often (downloads progressing); everything else is stable
 	// enough to cache for a while so navigation between pages stays snappy.
-	const cacheMs = isReleaseSearch ? 0 : isQueue ? 5_000 : 15_000;
+	const cacheMs = isReleaseSearch || isRename ? 0 : isQueue ? 5_000 : 15_000;
 
 	try {
 		const data = await arrRequest(cfg, path, { method, body, query, timeoutMs, cacheMs });

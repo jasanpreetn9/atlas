@@ -14,6 +14,9 @@
 	import EpisodeModal from '$lib/components/modals/EpisodeModal.svelte';
 	import TableOptions from '$lib/components/modals/TableOptions.svelte';
 	import Dialog from '$lib/components/modals/Dialog.svelte';
+	import ConfirmModal from '$lib/components/modals/ConfirmModal.svelte';
+	import MediaInfoModal from '$lib/components/modals/MediaInfoModal.svelte';
+	import RenamePreviewModal from '$lib/components/modals/RenamePreviewModal.svelte';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -90,3 +93,6 @@
 <EpisodeModal />
 <TableOptions />
 <Dialog />
+<ConfirmModal />
+<MediaInfoModal />
+<RenamePreviewModal />

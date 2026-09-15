@@ -266,3 +266,14 @@ export interface SonarrReleaseResource {
 	downloadClient: string | null;
 	shouldOverride: boolean | null;
 }
+
+/** One episode file that `GET /rename?seriesId=` would rename under the current naming format. */
+export interface RenamingResource {
+	id: number;
+	seriesId: number;
+	seasonNumber: number;
+	episodeNumbers: number[];
+	episodeFileId: number;
+	existingPath: string | null;
+	newPath: string | null;
+}

@@ -69,7 +69,7 @@ export function timeLabel(iso: string | null | undefined): string {
 	return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** "3d" / "5h" / "2w" / "just now" for an elapsed timestamp. */
+/** "3d" / "5h" / "2w" / "now" for an elapsed timestamp. */
 export function relativeAge(iso: string | null | undefined, now = new Date()): string {
 	if (!iso) return '';
 	const ms = now.getTime() - Date.parse(iso);
@@ -84,6 +84,13 @@ export function relativeAge(iso: string | null | undefined, now = new Date()): s
 	const wk = Math.floor(day / 7);
 	if (wk < 9) return `${wk}w`;
 	return `${Math.floor(day / 30)}mo`;
+}
+
+/** `relativeAge` with the trailing "ago", e.g. "3d ago" / "just now" (not "now ago"). */
+export function agoLabel(iso: string | null | undefined, now = new Date()): string {
+	const a = relativeAge(iso, now);
+	if (!a) return '—';
+	return a === 'now' ? 'just now' : `${a} ago`;
 }
 
 /** ISO-8601 duration ("PT1H23M") or Sonarr timespan ("1:23:00") → "1h 23m left". */

@@ -6,15 +6,18 @@ These take raw `*Resource` objects and return plain view-model objects or
 strings. No side effects, no fetching, no Svelte, so they test in isolation.
 Pages call them inside `$derived`.
 
-| File          | Key exports                                                                                                                                                                                                         | Consumed by                          |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `format.ts`   | `formatBytes`, `splitBytes`, `episodeCode`, `qualityLabel`, `runtimeLabel`, `ratingLabel`, `daysUntil`, `airLabel`, `timeLabel`, `relativeAge`, `timeleftLabel`, `pct`, `pad`                                       | everywhere                           |
-| `status.ts`   | `DerivedStatus` union; `STATUS_COLOR` / `STATUS_LABEL` / `STATUS_BADGE_BG` records; `deriveSeriesStatus` / `deriveMovieStatus` / `deriveEpisodeStatus`; `eventLabel` / `eventColor`                                 | dashboard, library, detail, activity |
-| `media.ts`    | `MediaItem`; `seriesToMediaItem` / `movieToMediaItem`; `posterUrl(images)`; `queueIndex(queue)` returning `{ series:Set, movie:Set }`; `parseMediaId('s:42')`; `countLabel`; `seasonEpisodeSummary`                 | dashboard, library, detail, layout   |
-| `episodes.ts` | `EpisodeRow`, `SeasonGroup`, `buildSeasons(episodes, files, queuedEpisodeIds, now)`                                                                                                                                 | detail page                          |
-| `disk.ts`     | `DiskRow`, `rootFolderDisks(roots, mounts)`, `diskSummary(rows)` returning `{ summary, pct }`                                                                                                                       | dashboard, layout                    |
-| `activity.ts` | queue: `queueRow`, `QueueRow`. grouped grabs: `groupGrabs`, `summarizeEpisodes`, `GrabGroup`. history: `historyRows`, `HistoryRow`, `matchesHistFilter`, `HIST_FILTERS`. blocklist: `blocklistRows`, `BlocklistRow` | dashboard, library, activity         |
-| `wanted.ts`   | wanted: `buildWantedRows`, `WantedRow`, `WantedMode`. dashboard attention: `missingRows`, `failureRows`, `AttentionRow`, `SearchCommand`                                                                            | dashboard, wanted                    |
+| File           | Key exports                                                                                                                                                                                                         | Consumed by                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `format.ts`    | `formatBytes`, `splitBytes`, `episodeCode`, `qualityLabel`, `runtimeLabel`, `ratingLabel`, `daysUntil`, `airLabel`, `timeLabel`, `relativeAge`, `agoLabel`, `timeleftLabel`, `pct`, `pad`                           | everywhere                           |
+| `status.ts`    | `DerivedStatus` union; `STATUS_COLOR` / `STATUS_LABEL` / `STATUS_BADGE_BG` records; `deriveSeriesStatus` / `deriveMovieStatus` / `deriveEpisodeStatus`; `eventLabel` / `eventColor`                                 | dashboard, library, detail, activity |
+| `media.ts`     | `MediaItem`; `seriesToMediaItem` / `movieToMediaItem`; `posterUrl(images)`; `queueIndex(queue)` returning `{ series:Set, movie:Set }`; `parseMediaId('s:42')`; `countLabel`; `seasonEpisodeSummary`                 | dashboard, library, detail, layout   |
+| `episodes.ts`  | `EpisodeRow`, `SeasonGroup`, `buildSeasons(episodes, files, queuedEpisodeIds, now)`                                                                                                                                 | detail page                          |
+| `disk.ts`      | `DiskRow`, `rootFolderDisks(roots, mounts)`, `diskSummary(rows)` returning `{ summary, pct }`                                                                                                                       | dashboard, layout                    |
+| `activity.ts`  | queue: `queueRow`, `QueueRow`. grouped grabs: `groupGrabs`, `summarizeEpisodes`, `GrabGroup`. history: `historyRows`, `HistoryRow`, `matchesHistFilter`, `HIST_FILTERS`. blocklist: `blocklistRows`, `BlocklistRow` | dashboard, library, activity         |
+| `wanted.ts`    | wanted: `buildWantedRows`, `WantedRow`, `WantedMode`. dashboard attention: `missingRows`, `failureRows`, `AttentionRow`, `SearchCommand`                                                                            | dashboard, wanted                    |
+| `system.ts`    | `SysRow`; `statusRows`, `healthRows`, `taskRows`, `updateRows`, `backupRows`, `logRows`                                                                                                                             | system                               |
+| `mediainfo.ts` | `MediaInfoTarget`, `buildMediaInfoTarget(title, subtitle, file)` normalizing an `EpisodeFileResource` or `MovieFileResource`                                                                                        | detail page, episode modal           |
+| `rename.ts`    | `RenameRow`, `renameRows(items)` flattening a `GET /rename` preview                                                                                                                                                 | detail page                          |
 
 ### Status derivation (`status.ts`)
 
@@ -60,8 +63,8 @@ need the API key. A TMDb `original` path is rewritten to `w342`.
 
 ### Modals
 
-The three under `components/modals/` are rendered once in `+layout.svelte` and
-open or close via `store` state, so any page can trigger them.
+Everything under `components/modals/` is rendered once in `+layout.svelte` and
+opens or closes via `store` state, so any page can trigger it.
 
 `InteractiveSearch.svelte` reads `store.srch` (a `SearchSubject`) and fetches
 `api.getReleases(subject)` when the subject changes. It shows a sortable table
@@ -71,10 +74,31 @@ rows are tinted and show the reason.
 
 `EpisodeModal.svelte` reads `store.epModal` and has Details and History tabs.
 History lazy-fetches `api.getEpisodeHistory(episodeId)`. The footer opens
-Interactive Search for that episode.
+Interactive Search for that episode; the file section has a Media Info button
+when `target.file` (the raw `EpisodeFileResource`) is set.
 
 `TableOptions.svelte` toggles `store.epShow[key]` against `EP_COLUMNS`. `num`,
 `title` and `status` are locked on.
+
+`Dialog.svelte` reads `store.dlg` / `store.dlgTarget` and is the real Edit and
+Delete flow for a series or movie (`PUT`/`DELETE` on `series` or `movie`).
+
+`ConfirmModal.svelte` is the generic confirm-before-you-act prompt. Any code
+calls `store.openConfirm({ title, body, danger?, confirmLabel?, onConfirm })`;
+the modal stays open with a "Working…" button until `onConfirm` resolves, then
+closes itself, or toasts an error and stays open on rejection. Used by the
+Detail page's per-episode and movie file deletes.
+
+`MediaInfoModal.svelte` reads `store.mediaInfo` (a `MediaInfoTarget`, built by
+`view/mediainfo.ts`) and lists the full `MediaInfoResource` breakdown: general
+(size, quality, languages, release group, added), video, audio, subtitles.
+
+`RenamePreviewModal.svelte` reads `store.renameTarget` and fetches
+`api.getRenamePreview(kind, id)` (`GET /rename`), listing existing → new paths
+for whatever doesn't match the current naming format. Confirming calls
+`api.renameFiles(kind, id, episodeFileIds)`, which is `RenameFiles` for a
+series (specific episode file ids) or `RenameMovie` for a movie (all of its
+files).
 
 ---
 

@@ -207,3 +207,12 @@ export interface RadarrReleaseResource {
 	downloadClient: string | null;
 	shouldOverride: boolean | null;
 }
+
+/** The movie file that `GET /rename?movieId=` would rename under the current naming format. */
+export interface MovieRenamingResource {
+	id: number;
+	movieId: number;
+	movieFileId: number;
+	existingPath: string | null;
+	newPath: string | null;
+}

@@ -2,7 +2,8 @@
 	import { api } from '$lib/api/client';
 	import type { SonarrHistoryResource } from '$lib/api/sonarr';
 	import { store } from '$lib/stores/store.svelte';
-	import { relativeAge } from '$lib/view/format';
+	import { agoLabel } from '$lib/view/format';
+	import { buildMediaInfoTarget } from '$lib/view/mediainfo';
 	import { eventColor, eventLabel } from '$lib/view/status';
 
 	const target = $derived(store.epModal);
@@ -34,6 +35,11 @@
 			episodeId: t.row.id,
 			label: `${t.seriesTitle} ${t.row.code}`
 		});
+	}
+
+	function openMediaInfo() {
+		if (!target?.file) return;
+		store.openMediaInfo(buildMediaInfoTarget(target.seriesTitle, target.row.code, target.file));
 	}
 </script>
 
@@ -167,6 +173,15 @@
 										>{e.score}</span
 									>
 								{/if}
+								{#if target.file}
+									<button
+										type="button"
+										onclick={openMediaInfo}
+										class="at-bdh-t"
+										style="margin-left:auto;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--sec);font-size:11px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
+										>Media Info</button
+									>
+								{/if}
 							</div>
 						</div>
 					{:else}
@@ -206,7 +221,7 @@
 								>
 								<span
 									style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-									>{relativeAge(h.date)} ago</span
+									>{agoLabel(h.date)}</span
 								>
 							</div>
 						{/each}

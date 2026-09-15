@@ -24,12 +24,14 @@ import type {
 import type {
 	EpisodeFileResource,
 	EpisodeResource,
+	RenamingResource,
 	SeriesResource,
 	SonarrHistoryResource,
 	SonarrQueueResource,
 	SonarrReleaseResource
 } from './sonarr';
 import type {
+	MovieRenamingResource,
 	MovieResource,
 	RadarrHistoryResource,
 	RadarrQueueResource,
@@ -65,6 +67,10 @@ export interface MovieEditorChanges {
 	applyTags?: 'add' | 'remove' | 'replace';
 	moveFiles?: boolean;
 }
+
+/** One file `GET /rename` found not matching the current naming format. */
+export type RenameItem =
+	({ kind: 'series' } & RenamingResource) | ({ kind: 'movie' } & MovieRenamingResource);
 
 export type QueueItem = SonarrQueueResource | RadarrQueueResource;
 export type HistoryItem = SonarrHistoryResource | RadarrHistoryResource;
@@ -136,6 +142,15 @@ export interface AtlasApi {
 	/** Bulk-remove many titles at once. */
 	bulkDeleteSeries(seriesIds: number[], opts: DeleteOptions): Promise<void>;
 	bulkDeleteMovies(movieIds: number[], opts: DeleteOptions): Promise<void>;
+
+	/** Remove one downloaded file, keeping the series/movie in the library. */
+	deleteEpisodeFile(id: number): Promise<void>;
+	deleteMovieFile(id: number): Promise<void>;
+
+	/** Files that would be renamed under the current naming format; empty if none. */
+	getRenamePreview(kind: WantedKind, id: number): Promise<RenameItem[]>;
+	/** Rename the given episode files (series) or every file for the movie. */
+	renameFiles(kind: WantedKind, id: number, episodeFileIds?: number[]): Promise<CommandResource>;
 
 	/** Pass a `kind` to scope to one app; omit for both merged. */
 	getRootFolders(kind?: WantedKind): Promise<RootFolderResource[]>;
@@ -487,6 +502,40 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			}).then(() => {
 				clearApiCache();
 			}),
+
+		deleteEpisodeFile: (id) =>
+			s(`episodefile/${id}`, { method: 'DELETE' }).then(() => {
+				clearApiCache();
+			}),
+		deleteMovieFile: (id) =>
+			r(`moviefile/${id}`, { method: 'DELETE' }).then(() => {
+				clearApiCache();
+			}),
+
+		getRenamePreview: (kind, id) =>
+			kind === 'series'
+				? s<RenamingResource[]>('rename', { query: { seriesId: id }, cacheMs: 0 }).then((xs) =>
+						xs.map((x) => ({ kind: 'series' as const, ...x }))
+					)
+				: r<MovieRenamingResource[]>('rename', { query: { movieId: id }, cacheMs: 0 }).then((xs) =>
+						xs.map((x) => ({ kind: 'movie' as const, ...x }))
+					),
+		renameFiles: (kind, id, episodeFileIds) =>
+			kind === 'series'
+				? s<CommandResource>('command', {
+						method: 'POST',
+						body: { name: 'RenameFiles', seriesId: id, files: episodeFileIds ?? [] }
+					}).then((v) => {
+						clearApiCache();
+						return v;
+					})
+				: r<CommandResource>('command', {
+						method: 'POST',
+						body: { name: 'RenameMovie', movieIds: [id] }
+					}).then((v) => {
+						clearApiCache();
+						return v;
+					}),
 
 		getRootFolders: (kind) =>
 			kind

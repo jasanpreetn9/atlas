@@ -21,9 +21,11 @@ live data.
 
 Action buttons are wired to the live instances where that is safe (monitor
 toggles, searches, refresh, interactive-search grab, add, edit and delete a
-title, and the Library mass editor for monitor, quality profile, root folder
-and delete). The remaining multi-step flows (manual import, rename, mass tags,
-restart, shutdown) show a "not wired up yet" toast for now.
+title, delete an episode or movie file, preview and run a rename, media info,
+and the Library mass editor for monitor, quality profile, root folder and
+delete). The remaining multi-step flows (manual import, editing a file's
+quality/language, mass tags, restart, shutdown) show a "not wired up yet"
+toast for now.
 
 ## To do
 
@@ -33,7 +35,7 @@ Screens not built:
 
 Actions that currently only show a toast:
 
-- [ ] Detail: Delete file, Preview Rename, Manual Import, Media info (Edit and Delete are real via the Dialog modal)
+- [ ] Detail: Manual Import, Edit quality / language on a movie file (Edit, Delete, Delete file, Preview Rename and Media info are all real now)
 - [ ] Library mass editor: Tags (Monitor, Unmonitor, Quality Profile, Root Folder and Delete are real via the `/series/editor` and `/movie/editor` endpoints)
 - [ ] Activity: Remove from queue, Remove & blocklist, Pause, Mark as Failed, Remove from blocklist, Clear all, Remove Selected
 - [ ] System: Restart, Shutdown
@@ -44,7 +46,7 @@ Polish:
 - [ ] Sort-direction toggle (asc / desc)
 - [ ] Command palette (Cmd+K)
 - [ ] Real custom-filter builder (currently adds a placeholder chip)
-- [ ] Confirm dialogs for the destructive actions above
+- [ ] Confirm dialogs for the remaining destructive actions above (Detail's file deletes already confirm, via the shared `ConfirmModal`)
 - [ ] `/add` result-card poster thumbnails render faint against the dark box
 
 ## Quick start

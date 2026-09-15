@@ -9,7 +9,7 @@ import type {
 	TaskResource,
 	UpdateResource
 } from '$lib/api/common';
-import { airLabel, formatBytes, relativeAge } from './format';
+import { agoLabel, airLabel, formatBytes, relativeAge } from './format';
 
 export interface SysRow {
 	key: string;
@@ -29,12 +29,6 @@ const HEALTH_DOT: Record<string, string> = {
 
 function join(parts: (string | null | undefined)[], sep = ' '): string {
 	return parts.filter((p): p is string => !!p).join(sep);
-}
-
-function ageLabel(iso: string, now: Date): string {
-	const a = relativeAge(iso, now);
-	if (!a) return '';
-	return a === 'now' ? 'just now' : `${a} ago`;
 }
 
 export function statusRows(sys: SystemResource, now = new Date()): SysRow[] {
@@ -122,7 +116,7 @@ export function backupRows(backups: BackupResource[], now = new Date()): SysRow[
 			key: `b${bk.id}`,
 			a: bk.name ?? '—',
 			b: bk.path ?? '',
-			c: join([formatBytes(bk.size), ageLabel(bk.time, now)], ' · '),
+			c: join([formatBytes(bk.size), agoLabel(bk.time, now)], ' · '),
 			dot: bk.type === 'scheduled' ? 'var(--neutral)' : 'var(--accent)'
 		}));
 }
@@ -134,7 +128,7 @@ export function logRows(logs: LogFileResource[], now = new Date()): SysRow[] {
 			key: `l${l.id}-${l.filename}`,
 			a: l.filename ?? '—',
 			b: '',
-			c: ageLabel(l.lastWriteTime, now),
+			c: agoLabel(l.lastWriteTime, now),
 			dot: null
 		}));
 }

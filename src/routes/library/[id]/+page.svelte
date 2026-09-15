@@ -3,7 +3,7 @@
 	import { api } from '$lib/api/client';
 	import { store, EP_COLUMNS } from '$lib/stores/store.svelte';
 	import { library } from '$lib/stores/library.svelte';
-	import { formatBytes, ratingLabel, relativeAge, runtimeLabel } from '$lib/view/format';
+	import { agoLabel, formatBytes, ratingLabel, runtimeLabel } from '$lib/view/format';
 	import {
 		deriveMovieStatus,
 		deriveSeriesStatus,
@@ -16,9 +16,10 @@
 	} from '$lib/view/status';
 	import { posterUrl, queueIndex } from '$lib/view/media';
 	import { buildSeasons, type EpisodeRow } from '$lib/view/episodes';
+	import { buildMediaInfoTarget } from '$lib/view/mediainfo';
 	import Poster from '$lib/components/Poster.svelte';
 	import ActionCluster from '$lib/components/ActionCluster.svelte';
-	import type { SonarrQueueResource } from '$lib/api/sonarr';
+	import type { EpisodeFileResource, SonarrQueueResource } from '$lib/api/sonarr';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -196,6 +197,19 @@
 	// ---- history (fetched per-title in +page.ts) ----
 	const history = $derived(data.history ?? []);
 
+	// The episode list has no file details; join in the separately-fetched files
+	// so row actions (delete, media info) can reach the raw `EpisodeFileResource`.
+	const episodeFileByEpisodeId = $derived.by(() => {
+		const map = new Map<number, EpisodeFileResource>();
+		if (data.kind !== 'series') return map;
+		const filesById = new Map(data.episodeFiles.map((f) => [f.id, f]));
+		for (const e of data.episodes) {
+			const file = e.episodeFileId ? filesById.get(e.episodeFileId) : undefined;
+			if (file) map.set(e.id, file);
+		}
+		return map;
+	});
+
 	// ---- actions ----
 	function notYet(label: string) {
 		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
@@ -319,7 +333,27 @@
 			seriesTitle: series.title ?? '',
 			network: series.network ?? '—',
 			qualityProfile: profileName,
-			row
+			row,
+			file: episodeFileByEpisodeId.get(row.id)
+		});
+	}
+
+	function deleteEpisodeFile(row: EpisodeRow) {
+		const file = episodeFileByEpisodeId.get(row.id);
+		if (!file) {
+			store.toast('No file to delete', 'var(--neutral)');
+			return;
+		}
+		store.openConfirm({
+			title: 'Delete file?',
+			body: `Remove the downloaded file for ${row.code}. This cannot be undone.`,
+			confirmLabel: 'Delete',
+			danger: true,
+			onConfirm: async () => {
+				await api.deleteEpisodeFile(file.id);
+				await library.refresh();
+				store.toast(`Deleted file for ${row.code}`, 'var(--err)');
+			}
 		});
 	}
 
@@ -334,7 +368,7 @@
 			{ icon: 'search', label: 'Automatic Search', onClick: () => searchEpisode(row) },
 			{ icon: 'isearch', label: 'Interactive Search', onClick: () => openEpisodeSearch(row) },
 			{ icon: 'import', label: 'Manual Import', onClick: () => notYet('Manual import') },
-			{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: () => notYet('Delete file') }
+			{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: () => deleteEpisodeFile(row) }
 		];
 	}
 
@@ -350,14 +384,44 @@
 		];
 	}
 
+	function showMovieMediaInfo() {
+		if (!movie?.movieFile) return;
+		store.openMediaInfo(
+			buildMediaInfoTarget(movie.title ?? 'Movie', String(movie.year ?? ''), movie.movieFile)
+		);
+	}
+
+	function deleteMovieFile() {
+		if (!movie?.movieFile) return;
+		const fileId = movie.movieFile.id;
+		const title = movie.title ?? 'this movie';
+		store.openConfirm({
+			title: 'Delete file?',
+			body: `Remove the downloaded file for ${title}. This cannot be undone.`,
+			confirmLabel: 'Delete',
+			danger: true,
+			onConfirm: async () => {
+				await api.deleteMovieFile(fileId);
+				await library.refresh();
+				store.toast(`Deleted file for ${title}`, 'var(--err)');
+			}
+		});
+	}
+
+	function previewRename() {
+		const item = series ?? movie;
+		if (!item) return;
+		store.openRename({ kind: data.kind, id: item.id, title: item.title ?? '' });
+	}
+
 	const movieFileActions = [
 		{
 			icon: 'edit',
 			label: 'Edit quality / language',
 			onClick: () => notYet('Edit quality / language')
 		},
-		{ icon: 'info', label: 'Media info', onClick: () => notYet('Media info') },
-		{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: () => notYet('Delete file') }
+		{ icon: 'info', label: 'Media info', onClick: showMovieMediaInfo },
+		{ icon: 'del', label: 'Delete file', tone: 'danger', onClick: deleteMovieFile }
 	];
 </script>
 
@@ -557,7 +621,7 @@
 					>
 					<button
 						type="button"
-						onclick={() => notYet('Preview rename')}
+						onclick={previewRename}
 						class="at-bdh"
 						style="height:34px;padding:0 11px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
 						>Preview Rename</button
@@ -877,7 +941,7 @@
 					>
 					<span
 						style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
-						>{relativeAge(h.date)} ago</span
+						>{agoLabel(h.date)}</span
 					>
 				</div>
 			{/each}

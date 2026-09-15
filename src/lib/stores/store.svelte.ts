@@ -3,8 +3,10 @@
 
 import { browser } from '$app/environment';
 import { api } from '$lib/api/client';
-import type { QueueItem, ReleaseItem, SearchSubject } from '$lib/api/client';
+import type { QueueItem, ReleaseItem, SearchSubject, WantedKind } from '$lib/api/client';
+import type { EpisodeFileResource } from '$lib/api/sonarr';
 import type { EpisodeRow } from '$lib/view/episodes';
+import type { MediaInfoTarget } from '$lib/view/mediainfo';
 
 export type Theme = 'dark' | 'light';
 export type Density = 'Compact' | 'Balanced' | 'Roomy';
@@ -21,6 +23,8 @@ export interface EpModalTarget {
 	network: string;
 	qualityProfile: string;
 	row: EpisodeRow;
+	/** The raw file, when one exists, so the modal can open Media Info. */
+	file?: EpisodeFileResource;
 }
 
 export type DialogKind = 'add' | 'edit' | 'delete';
@@ -30,6 +34,21 @@ export interface DialogTarget {
 	id?: number;
 	title: string;
 	year?: number;
+}
+
+/** A destructive or otherwise confirm-first action, run by the global ConfirmModal. */
+export interface ConfirmSpec {
+	title: string;
+	body: string;
+	confirmLabel?: string;
+	danger?: boolean;
+	onConfirm: () => void | Promise<void>;
+}
+
+export interface RenameTarget {
+	kind: WantedKind;
+	id: number;
+	title: string;
 }
 
 export const EP_COLUMNS = [
@@ -118,6 +137,10 @@ class AtlasStore {
 	);
 	dlg = $state<DialogKind | null>(null);
 	dlgTarget = $state<DialogTarget | null>(null);
+	confirmSpec = $state<ConfirmSpec | null>(null);
+	confirmBusy = $state(false);
+	mediaInfo = $state<MediaInfoTarget | null>(null);
+	renameTarget = $state<RenameTarget | null>(null);
 
 	// ---- mutable session data ----
 	toasts = $state<Toast[]>([]);
@@ -176,6 +199,43 @@ class AtlasStore {
 	closeDialog() {
 		this.dlg = null;
 		this.dlgTarget = null;
+	}
+
+	/** Ask before a destructive action; the ConfirmModal calls `runConfirm()` on accept. */
+	openConfirm(spec: ConfirmSpec) {
+		this.confirmSpec = spec;
+		this.confirmBusy = false;
+	}
+	closeConfirm() {
+		this.confirmSpec = null;
+		this.confirmBusy = false;
+	}
+	async runConfirm() {
+		const spec = this.confirmSpec;
+		if (!spec || this.confirmBusy) return;
+		this.confirmBusy = true;
+		try {
+			await spec.onConfirm();
+			this.confirmSpec = null;
+		} catch {
+			this.toast('Action failed', 'var(--err)');
+		} finally {
+			this.confirmBusy = false;
+		}
+	}
+
+	openMediaInfo(target: MediaInfoTarget) {
+		this.mediaInfo = target;
+	}
+	closeMediaInfo() {
+		this.mediaInfo = null;
+	}
+
+	openRename(target: RenameTarget) {
+		this.renameTarget = target;
+	}
+	closeRename() {
+		this.renameTarget = null;
 	}
 
 	toggleEpColumn(key: string) {
