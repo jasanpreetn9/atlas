@@ -75,6 +75,65 @@ Manual Import (scans the series folder via `ManualImportModal`); Preview Rename
 
 ---
 
+## `/add` (`+page.svelte` + `+page.ts`)
+
+Loads: quality profiles and root folders for both apps -
+`getQualityProfiles('series'|'movie')`, `getRootFolders('series'|'movie')` -
+via `allSettled`, each falling back to `[]`. The add dialog reads these
+straight from `data`; there's no client-side refetch.
+
+Local state: `query`, debounced 350ms into `runSearch`, which calls
+`api.lookupSeries` and `api.lookupMovie` in parallel and merges the results,
+ranking exact and prefix title matches first and sorting the rest by year
+descending, capped at 24. A `seq` counter drops stale responses when a
+newer keystroke has already fired. Each lookup failure is swallowed to `[]`
+in the `.catch`, so the `error` state it feeds is effectively never set;
+a failed lookup just reads as "no results" rather than surfacing the
+"Lookup failed" message. `inLibrary` is checked against `library.series` /
+`library.movies` by `tvdbId` / `tmdbId`, so already-added titles show
+"In library" instead of "Add".
+
+Add dialog: clicking "Add" opens `dlg` with defaults seeded from the first
+root folder and quality profile for that kind, `monitor` defaulting to
+"All Episodes" for series or "Movie Only" for movies. Series fields add
+Series Type and Season Folder; movie fields add Minimum Availability. Both
+share a "Start search after adding" toggle.
+
+Real actions: confirming the dialog calls `api.addSeries` or `api.addMovie`
+with the resource from the lookup plus the form fields, then toasts, closes
+the dialog and calls `library.refresh()`. Both are real, live-affecting API
+calls (no stub here) - unlike delete/edit actions elsewhere, adding is
+additive and idempotent per the [convention](./06-conventions.md#real-vs-stubbed).
+
+---
+
+## `/calendar` (`+page.svelte` + `+page.ts`)
+
+`?m=` is a month offset from the current month (`go(offset)` navigates via
+`goto('?m=...')`, `keepFocus`/`noScroll`). `+page.ts` turns that into an
+anchor month and a six-week grid window (`gridStart` at the first
+Sunday on/before the 1st, 42 days out), so Month view never needs a
+client-side refetch when scrolling within the loaded month.
+
+Loads: `getCalendar(gridStart, gridEnd)` for that window; `loadError` is set
+on failure and renders a "Couldn't load the calendar" block in place of
+the grid.
+
+Renders: a Month/Agenda toggle and Previous/Today/Next controls (`go`).
+`calendarEvents` (`src/lib/view/calendar.ts`) flattens the loaded items into
+dated events, tagged TV or M, with status derived via `deriveEpisodeStatus`
+/ `deriveMovieStatus` against the live queue (`queueIndex` over
+`store.extraQueue` plus `library.queue`). Month view buckets events by
+`dayKey` into the grid, showing up to 3 per cell plus a "+N more" that
+switches to Agenda. Agenda view lists only the days that fall in the
+current month, each event linking to its Detail page
+(`/library/s:<id>?ep=<id>` or `/library/m:<id>`).
+
+No actions beyond navigation; every event is a link into Detail; nothing
+here calls a search or grab command directly.
+
+---
+
 ## `/wanted` (`+page.svelte` + `+page.ts`)
 
 Loads: `getWantedMissing('series'|'movie')` and
