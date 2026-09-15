@@ -23,10 +23,10 @@ Action buttons are wired to the live instances where that is safe (monitor
 toggles, searches, refresh, interactive-search grab, add, edit and delete a
 title, delete an episode or movie file, preview and run a rename, media info,
 edit a file's quality/language, manual import for a series, the Library mass
-editor for monitor, quality profile, root folder and delete, and Activity's
-queue and blocklist removals and mark-as-failed). The remaining multi-step
-flows (mass tags, pause, restart, shutdown) show a "not wired up yet" toast
-for now.
+editor for monitor, quality profile, root folder and delete, Activity's queue
+and blocklist removals and mark-as-failed, and System's restart and
+shutdown). The remaining multi-step flows (mass tags, pause) show a "not
+wired up yet" toast for now.
 
 ## To do
 
@@ -38,7 +38,6 @@ Actions that currently only show a toast:
 
 - [ ] Library mass editor: Tags (Monitor, Unmonitor, Quality Profile, Root Folder and Delete are real via the `/series/editor` and `/movie/editor` endpoints)
 - [ ] Activity: Pause / Pause all (no generic Sonarr/Radarr endpoint; pausing is a download-client capability, not exposed by the *arr REST API), Manual Import from a queue item (Remove from queue, Remove & blocklist, Remove Selected, Mark as Failed, Remove from blocklist and Clear all are all real now)
-- [ ] System: Restart, Shutdown
 
 Polish:
 

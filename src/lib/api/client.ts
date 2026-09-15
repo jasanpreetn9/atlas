@@ -212,6 +212,11 @@ export interface AtlasApi {
 	/** Remove one blocklist entry, or every one of the given ids at once. */
 	removeFromBlocklist(app: WantedKind, id: number): Promise<void>;
 	bulkRemoveFromBlocklist(app: WantedKind, ids: number[]): Promise<void>;
+
+	/** Restart the app; it comes back up on its own. */
+	restartApp(kind: WantedKind): Promise<void>;
+	/** Stop the app; nothing brings it back up unless something else (a service manager, Docker) does. */
+	shutdownApp(kind: WantedKind): Promise<void>;
 }
 
 type FetchFn = typeof fetch;
@@ -709,6 +714,15 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			}),
 		bulkRemoveFromBlocklist: (app, ids) =>
 			forKind(app)('blocklist/bulk', { method: 'DELETE', body: { ids } }).then(() => {
+				clearApiCache();
+			}),
+
+		restartApp: (kind) =>
+			forKind(kind)('system/restart', { method: 'POST' }).then(() => {
+				clearApiCache();
+			}),
+		shutdownApp: (kind) =>
+			forKind(kind)('system/shutdown', { method: 'POST' }).then(() => {
 				clearApiCache();
 			})
 	};

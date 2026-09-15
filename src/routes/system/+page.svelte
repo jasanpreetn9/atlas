@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { api } from '$lib/api/client';
+	import type { WantedKind } from '$lib/api/client';
 	import { store } from '$lib/stores/store.svelte';
 	import {
 		backupRows,
@@ -111,6 +113,45 @@
 		store.toast(`${label} isn't wired up yet`, 'var(--neutral)');
 	}
 
+	function appNames() {
+		return apps.map((k) => appLabel[k]).join(' and ');
+	}
+
+	/** The page groups by 'sonarr' | 'radarr' for display; the API calls want 'series' | 'movie'. */
+	function kindOf(app: 'sonarr' | 'radarr'): WantedKind {
+		return app === 'sonarr' ? 'series' : 'movie';
+	}
+
+	function restart() {
+		if (apps.length === 0) return;
+		store.openConfirm({
+			title: 'Restart?',
+			body: `Restart ${appNames()}. Each comes back up on its own after a few seconds; the page may show stale data until then.`,
+			confirmLabel: 'Restart',
+			danger: true,
+			onConfirm: async () => {
+				// A restarting app can drop the connection before answering, so a request
+				// failing here isn't necessarily a failure - don't second-guess it.
+				await Promise.all(apps.map((k) => api.restartApp(kindOf(k)).catch(() => {})));
+				store.toast(`Restarting ${appNames()}…`, 'var(--warn)');
+			}
+		});
+	}
+
+	function shutdown() {
+		if (apps.length === 0) return;
+		store.openConfirm({
+			title: 'Shut down?',
+			body: `Shut down ${appNames()}. Unlike Restart, nothing brings it back up on its own unless something else (a service manager, Docker) does.`,
+			confirmLabel: 'Shutdown',
+			danger: true,
+			onConfirm: async () => {
+				await Promise.all(apps.map((k) => api.shutdownApp(kindOf(k)).catch(() => {})));
+				store.toast(`Shutting down ${appNames()}…`, 'var(--err)');
+			}
+		});
+	}
+
 	async function copyInfo() {
 		const lines: string[] = [];
 		for (const k of ['sonarr', 'radarr'] as const) {
@@ -157,17 +198,23 @@
 		>
 		<button
 			type="button"
-			onclick={() => notYet('Restart')}
+			onclick={restart}
+			disabled={apps.length === 0}
 			class="at-bdh"
-			style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--warn);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>Restart</button
+			style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--warn);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out;opacity:{apps.length ===
+			0
+				? '.5'
+				: '1'}">Restart</button
 		>
 		<button
 			type="button"
-			onclick={() => notYet('Shutdown')}
+			onclick={shutdown}
+			disabled={apps.length === 0}
 			class="at-bdh"
-			style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--err);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out"
-			>Shutdown</button
+			style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--err);font-size:13px;font-weight:500;cursor:pointer;transition:border-color 120ms ease-out;opacity:{apps.length ===
+			0
+				? '.5'
+				: '1'}">Shutdown</button
 		>
 	</div>
 </div>

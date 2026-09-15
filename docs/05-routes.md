@@ -126,6 +126,28 @@ live.
 
 ---
 
+## `/system` (`+page.svelte` + `+page.ts`)
+
+Loads everything per app so Sonarr and Radarr sections sit side by side:
+`getSystemStatus`, `status` (ping), `getHealth`, `getTasks`, `getUpdates`,
+`getBackups`, `getLogFiles`. Every call is a GET, so the proxy's 15s cache
+smooths repeat visits; `apps` is whichever of Sonarr/Radarr `data.ping` says
+is configured.
+
+Six tabs (`statusRows`, `healthRows`, `taskRows`, `updateRows`, `backupRows`,
+`logRows` from `view/system.ts`), each a flat `SysRow` list rendered as
+label / value / meta rows. Health carries a count badge on its tab.
+
+Toolbar: Refresh (`invalidateAll()`), Copy info (writes a plain-text summary
+to the clipboard), Restart and Shutdown. Restart and Shutdown act on every
+configured app at once (`POST /system/restart` / `/system/shutdown`),
+confirm first through `ConfirmModal`, and don't fail loudly if the request
+itself errors - a restarting or shutting-down app can drop the connection
+before answering, which isn't a failure to second-guess. Both toolbar
+buttons are disabled when nothing is configured.
+
+---
+
 ## `+layout.svelte` / `+error.svelte`
 
 The layout renders `Sidebar`, `Header`, `<main style="padding:24px 28px 72px">`,
