@@ -29,6 +29,8 @@ export interface MediaItem {
 	ratingValue: number | null;
 	added: string;
 	status: DerivedStatus;
+	/** Series only: ISO date of the next episode to air, or null. */
+	nextAiring: string | null;
 	/** Public poster URL (TMDb / TheTVDB), or null. */
 	poster: string | null;
 	tvdbId?: number;
@@ -79,6 +81,7 @@ export function seriesToMediaItem(
 		ratingValue: s.ratings?.value ?? null,
 		added: s.added,
 		status: deriveSeriesStatus(s, inQueue),
+		nextAiring: s.nextAiring ?? null,
 		poster: posterUrl(s.images),
 		tvdbId: s.tvdbId,
 		imdbId: s.imdbId ?? undefined
@@ -109,6 +112,7 @@ export function movieToMediaItem(
 		ratingValue: ratings.imdb?.value ?? ratings.tmdb?.value ?? null,
 		added: m.added,
 		status: deriveMovieStatus(m, inQueue),
+		nextAiring: null,
 		poster: posterUrl(m.images),
 		tmdbId: m.tmdbId,
 		imdbId: m.imdbId ?? undefined

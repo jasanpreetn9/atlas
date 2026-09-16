@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api/client';
 	import { store, LIB_PAGE_SIZES } from '$lib/stores/store.svelte';
-	import { formatBytes } from '$lib/view/format';
+	import { airLabel, formatBytes } from '$lib/view/format';
 	import {
 		STATUS_BADGE_BG,
 		STATUS_COLOR,
@@ -126,6 +126,7 @@
 			badgeBg: STATUS_BADGE_BG[it.status as DerivedStatus],
 			unmon: !it.monitored,
 			progress: queueProgress.get(it.id) ?? null,
+			nextAiringLabel: it.nextAiring ? airLabel(it.nextAiring) : null,
 			get selected() {
 				return !!sel[it.id];
 			}
@@ -973,6 +974,15 @@
 							>
 								{r.it.year} · {r.it.source}
 							</div>
+							{#if r.nextAiringLabel}
+								<div
+									style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{onImage
+										? 'rgba(255,255,255,.8)'
+										: 'var(--muted)'};text-shadow:{onImage ? '0 1px 2px rgba(0,0,0,.6)' : 'none'}"
+								>
+									Next: {r.nextAiringLabel}
+								</div>
+							{/if}
 							<span
 								style="align-self:flex-start;font-size:10px;font-weight:500;padding:1px 6px;border-radius:4px;background:{onImage
 									? 'rgba(255,255,255,.16)'
