@@ -4,7 +4,7 @@ Each `+page.ts` `load()` fetches page-specific data through `createHttpApi(fetch
 with `Promise.allSettled`, so partial failures degrade to empty results plus a
 `loadErrors` list. Shared data (series, movies, queue, folders, profiles) comes
 from the `library` store, not from `load()`. `+page.svelte` derives view-models
-via `src/lib/view` and renders markup ported from the design.
+via `src/lib/view` and renders the markup for each screen directly.
 
 ---
 
@@ -164,9 +164,9 @@ Renders three tabs:
 
 - Queue: `queueRow`; toolbar with Remove Selected and an auto-refresh label.
 - History: `historyRows` (ungrouped, one row per event); filter chips `All`,
-  `Grabbed`, `Imported`, `Failed`, `Deleted` (`matchesHistFilter`). The design's
-  fifth filter was "Upgraded", which has no reliable signal in real payloads, so
-  it was swapped for "Deleted".
+  `Grabbed`, `Imported`, `Failed`, `Deleted` (`matchesHistFilter`). A fifth
+  filter, "Upgraded", has no reliable signal in real payloads, so it was
+  swapped for "Deleted".
 - Blocklist: `blocklistRows`; a "Clear all" button.
 
 Queue rows carry a checkbox (`qSel`); Remove Selected, per-row Remove from

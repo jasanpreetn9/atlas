@@ -14,13 +14,13 @@ request upstream.
 
 ```
  browser                          server (SvelteKit)                 upstream
-┌─────────────────────┐   fetch  ┌───────────────────────────┐  X-Api-Key ┌──────────┐
-│ components / +page   │ ───────▶ │ routes/api/{sonarr,       │ ─────────▶ │ Sonarr   │
-│ stores/  (rune data) │          │            radarr}/[...path]│           │ Radarr   │
-│ view/    (mappers)   │ ◀─────── │   → lib/server/proxy       │ ◀───────── │  v3 API  │
-│ lib/api/client.ts    │  JSON    │   → lib/server/http        │   JSON     └──────────┘
-└─────────────────────┘          │   → lib/server/config      │
-                                 └───────────────────────────┘
+┌─────────────────────┐   fetch  ┌─────────────────────────────┐  X-Api-Key ┌──────────┐
+│ components / +page  │ ───────▶ │ routes/api/{sonarr,         │ ─────────▶ │ Sonarr   │
+│ stores/ (rune data) │          │            radarr}/[...path]│            │ Radarr   │
+│ view/    (mappers)  │ ◀─────── │   → lib/server/proxy        │ ◀───────── │  v3 API  │
+│ lib/api/client.ts   │  JSON    │   → lib/server/http         │   JSON     └──────────┘
+└─────────────────────┘          │   → lib/server/config       │
+                                 └─────────────────────────────┘
         shared: lib/api/{common,sonarr,radarr}.ts  (type definitions, both sides)
 ```
 

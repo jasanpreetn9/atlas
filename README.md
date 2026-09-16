@@ -2,8 +2,7 @@
 
 A SvelteKit frontend for real Sonarr (TV) and Radarr (movies) instances. It
 provides one unified library, dashboard, calendar, activity feed and "wanted"
-view over both apps. It is a 1:1 port of the original design prototype, wired to
-live data.
+view over both apps, wired to live data.
 
 ## Status
 
@@ -146,9 +145,9 @@ fills.
 `src/lib/view/*` are pure mappers that turn raw Sonarr and Radarr resources into
 display models. No side effects, no fetching.
 
-Styling is inline `style=""` ported verbatim from the design, plus CSS custom
-properties and a few hover utility classes in `src/lib/styles/atlas.css`. There
-is no component framework.
+Styling is inline `style=""` on each element, plus CSS custom properties and a
+few hover utility classes in `src/lib/styles/atlas.css`. There is no component
+framework.
 
 ## Layout
 
@@ -159,7 +158,7 @@ src/lib/
   stores/      rune singletons: store (UI/overlays), library (shared data), nav
   view/        pure resource-to-display mappers
   components/  Svelte components + modals/ (rendered once in the layout)
-  styles/      atlas.css: design tokens, resets, hover utilities
+  styles/      atlas.css: CSS custom properties, resets, hover utilities
 src/routes/
   api/         the /api/{sonarr,radarr}/[...path] proxy + /api/status
   +layout.*    shell (sidebar + header + main + toasts + modals)

@@ -1,4 +1,4 @@
-/* Atlas visual foundation, ported from the original design's global stylesheet.
+/* Atlas visual foundation.
    Palette lives on :root (dark, the default) and :root[data-theme='light']. */
 
 :root {
@@ -119,8 +119,8 @@ input::placeholder {
 	}
 }
 
-/* Hover / focus utilities. The design's per-element hover/focus styles, collapsed
-   into pseudo-classes; these cover the recurring patterns. */
+/* Hover / focus utilities. Recurring per-element hover/focus styles, collapsed
+   into pseudo-classes. */
 .at-hov:hover {
 	background: var(--hover);
 	color: var(--text);

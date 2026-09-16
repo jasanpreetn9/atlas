@@ -21,9 +21,8 @@ Pages call them inside `$derived`.
 
 ### Status derivation (`status.ts`)
 
-The design keyed everything off three lookup maps: `SC` (colour), `SL` (label),
-`SB` (badge background). Those are `STATUS_COLOR`, `STATUS_LABEL` and
-`STATUS_BADGE_BG` here, keyed by `DerivedStatus`:
+Every status keys off three lookup maps: `STATUS_COLOR`, `STATUS_LABEL` and
+`STATUS_BADGE_BG`, keyed by `DerivedStatus`:
 
 ```
 downloaded | missing | downloading | upgrading | unmonitored | unaired | failed
@@ -121,7 +120,7 @@ auto-detected quality and language straight through.
 
 ## `src/lib/styles/atlas.css`
 
-Ported from the original design's global stylesheet.
+The app's global stylesheet.
 
 Tokens sit on `:root` (dark, the default) and `:root[data-theme='light']`: `--bg
 --surf --raised --bd --bdh --text --sec --muted --accent --hover --sel --inv
@@ -130,7 +129,7 @@ Tokens sit on `:root` (dark, the default) and `:root[data-theme='light']`: `--bg
 
 Keyframes: `spin` (grab spinner), `tin` and `fin` (modal and row enter).
 
-The hover utilities collapse the design's per-element hover styles into a few
+The hover utilities collapse repeated per-element hover styles into a few
 classes so markup stays declarative:
 
 | class        | effect on `:hover` (or `:focus`)                         |
@@ -144,5 +143,5 @@ classes so markup stays declarative:
 | `.at-warn`   | `background: rgba(245,166,35,.14)`                       |
 | `.at-focus`  | `border-color: var(--accent); box-shadow: 0 0 0 2px ...` |
 
-Everything else is inline `style=""` copied from the design (see
-[Conventions](./06-conventions.md#porting-the-design)).
+Everything else is inline `style=""` on each element (see
+[Conventions](./06-conventions.md#markup-and-styling)).

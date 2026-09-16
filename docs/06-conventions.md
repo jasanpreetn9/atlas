@@ -14,21 +14,18 @@ Runes mode is forced project-wide (`vite.config.ts`, `compilerOptions.runes`).
   `{@render name(args)}` (see `Poster.svelte`).
 - Events are attributes: `onclick={...}`, not `on:click`.
 
-## Porting the design
+## Markup and styling
 
-The original design prototype is the source of truth for layout.
-
-- Inline `style=""` is copied verbatim from the design's markup. Don't refactor it
-  into classes. That is deliberate: it keeps every element diffable against the
-  prototype.
-- The design's per-element hover and focus styles map to one of the `.at-*`
-  utility classes in `styles/atlas.css`
-  ([table](./04-view-and-ui.md#srclibstylesatlascss)). Add a new one only when a
-  hover pattern recurs.
-- The design's `SC` / `SL` / `SB` maps become `STATUS_COLOR` / `STATUS_LABEL` /
-  `STATUS_BADGE_BG` in `view/status.ts`.
-- The prototype's mock data generators are not ported. Their output shape is
-  reproduced by the `view/` mappers from real data.
+- Inline `style=""` is used directly on each element. Don't refactor it into
+  classes. That is deliberate: it keeps every element's styling immediately
+  visible at the call site.
+- Per-element hover and focus styles map to one of the `.at-*` utility classes
+  in `styles/atlas.css` ([table](./04-view-and-ui.md#srclibstylesatlascss)).
+  Add a new one only when a hover pattern recurs.
+- Status colour / label / badge lookups live in `STATUS_COLOR` /
+  `STATUS_LABEL` / `STATUS_BADGE_BG` in `view/status.ts`.
+- There is no mock data generator; every `view/` mapper reads real Sonarr and
+  Radarr resources.
 
 ## Real vs. stubbed
 
@@ -82,8 +79,8 @@ Run `npm run check` and `npm run format` before every commit.
 1. `src/routes/calendar/+page.ts`: a `load()` using `createHttpApi(fetch)` and
    `Promise.allSettled`; return the data plus a `loadErrors` string list.
 2. `src/routes/calendar/+page.svelte`: read `library.*` for shared data and
-   `data.*` for page data; `$derived` the view-models via `src/lib/view`; port the
-   markup from the corresponding block in the design prototype.
+   `data.*` for page data; `$derived` the view-models via `src/lib/view`; write
+   the markup for the screen directly.
 3. The nav entry already exists in `stores/nav.ts`, and `activeNavKey` already
    handles the path prefix.
 4. Run `npm run check`, then verify in the browser against live data.

@@ -1,4 +1,4 @@
-// Sidebar navigation config. Icon paths are copied from the design's NAV_ICONS.
+// Sidebar navigation config.
 
 export interface NavItem {
 	key: string;

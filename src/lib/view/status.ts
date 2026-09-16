@@ -1,5 +1,5 @@
-// Derives the design's 6 display statuses from real Sonarr/Radarr fields, and the
-// colour / label / badge maps the Atlas template keys off (the design's SC / SL / SB).
+// Derives the 7 display statuses from real Sonarr/Radarr fields, and the
+// colour / label / badge maps the Atlas templates key off.
 
 import type { EpisodeResource, SeriesResource } from '$lib/api/sonarr';
 import type { MovieResource } from '$lib/api/radarr';

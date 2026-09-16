@@ -31,14 +31,14 @@ src/
 │   │   ├── Sidebar.svelte      left nav + disk summary + badge counts
 │   │   ├── Header.svelte       top bar: search box (feeds store.query), theme toggle
 │   │   ├── Poster.svelte       lazy <img> with fallback text + scrim snippets
-│   │   ├── ActionCluster.svelte  compact row of icon buttons (from the design's ActionCluster)
+│   │   ├── ActionCluster.svelte  compact row of icon buttons
 │   │   ├── Toasts.svelte       renders store.toasts
 │   │   └── modals/             rendered once in +layout.svelte, driven by store
 │   │       ├── InteractiveSearch.svelte   live indexer results, Grab / Override
 │   │       ├── EpisodeModal.svelte        episode details + per-episode history
 │   │       └── TableOptions.svelte        episode-table column picker
 │   ├── styles/
-│   │   └── atlas.css           design tokens (:root vars), resets, @keyframes, .at-* hover classes
+│   │   └── atlas.css           CSS custom properties (:root vars), resets, @keyframes, .at-* hover classes
 │   └── index.ts                empty (SvelteKit $lib marker)
 └── routes/
     ├── +layout.svelte          shell: Sidebar + Header + <main> + Toasts + 3 modals; boots library

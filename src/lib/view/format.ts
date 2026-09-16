@@ -6,7 +6,7 @@ export function pad(n: number): string {
 	return n < 10 ? `0${n}` : `${n}`;
 }
 
-/** Bytes → "1.4 TB" / "12.3 GB" / "820 MB" / "512 KB" (mirrors the design's `gb()`). */
+/** Bytes → "1.4 TB" / "12.3 GB" / "820 MB" / "512 KB". */
 export function formatBytes(bytes: number | null | undefined): string {
 	if (!bytes || bytes < 0) return '0 B';
 	const gb = bytes / 1_073_741_824;

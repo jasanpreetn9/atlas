@@ -71,7 +71,7 @@
 
 	const q = $derived(store.query.trim().toLowerCase());
 
-	// pool = type + text-search filter (before status filter), matches the design.
+	// pool = type + text-search filter (before status filter).
 	const pool = $derived(
 		allItems.filter((it) => {
 			if (typeFilter !== 'all' && it.kind !== typeFilter) return false;
