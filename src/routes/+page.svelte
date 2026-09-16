@@ -55,7 +55,8 @@
 
 	const seriesById = $derived(new Map(library.series.map((s) => [s.id, s])));
 	const moviesById = $derived(new Map(library.movies.map((m) => [m.id, m])));
-	const qIndex = $derived(queueIndex([...store.extraQueue, ...queue]));
+	const mergedQueue = $derived([...store.extraQueue, ...queue]);
+	const qIndex = $derived(queueIndex(mergedQueue));
 
 	// ---- stat cards ----
 	const movieBytes = $derived(
@@ -95,8 +96,8 @@
 
 	const attnMissing = $derived(
 		[
-			...missingRows(data.wantedSeries.records, 'series', seriesById, now),
-			...missingRows(data.wantedMovies.records, 'movie', seriesById, now)
+			...missingRows(data.wantedSeries.records, 'series', seriesById, mergedQueue, now),
+			...missingRows(data.wantedMovies.records, 'movie', seriesById, mergedQueue, now)
 		].slice(0, 6)
 	);
 	const attnFailures = $derived(failureRows(data.history, seriesById, moviesById, now).slice(0, 5));

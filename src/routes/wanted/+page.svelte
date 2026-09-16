@@ -5,7 +5,7 @@
 	import { api } from '$lib/api/client';
 	import { store } from '$lib/stores/store.svelte';
 	import { library } from '$lib/stores/library.svelte';
-	import { STATUS_BADGE_BG, STATUS_COLOR } from '$lib/view/status';
+	import { STATUS_BADGE_BG, STATUS_COLOR, STATUS_LABEL } from '$lib/view/status';
 	import { buildWantedRows, type WantedRow } from '$lib/view/wanted';
 	import ActionCluster from '$lib/components/ActionCluster.svelte';
 	import type { PageData } from './$types';
@@ -26,6 +26,7 @@
 
 	const seriesById = $derived(new Map(library.series.map((s) => [s.id, s])));
 	const moviesById = $derived(new Map(library.movies.map((m) => [m.id, m])));
+	const queue = $derived([...store.extraQueue, ...library.queue]);
 
 	const missingRows = $derived([
 		...buildWantedRows(
@@ -34,13 +35,38 @@
 			'missing',
 			seriesById,
 			moviesById,
+			queue,
 			now
 		),
-		...buildWantedRows(data.missingMovies.records, 'movie', 'missing', seriesById, moviesById, now)
+		...buildWantedRows(
+			data.missingMovies.records,
+			'movie',
+			'missing',
+			seriesById,
+			moviesById,
+			queue,
+			now
+		)
 	]);
 	const cutoffRows = $derived([
-		...buildWantedRows(data.cutoffSeries.records, 'series', 'cutoff', seriesById, moviesById, now),
-		...buildWantedRows(data.cutoffMovies.records, 'movie', 'cutoff', seriesById, moviesById, now)
+		...buildWantedRows(
+			data.cutoffSeries.records,
+			'series',
+			'cutoff',
+			seriesById,
+			moviesById,
+			queue,
+			now
+		),
+		...buildWantedRows(
+			data.cutoffMovies.records,
+			'movie',
+			'cutoff',
+			seriesById,
+			moviesById,
+			queue,
+			now
+		)
 	]);
 
 	const missingTotal = $derived(data.missingSeries.totalRecords + data.missingMovies.totalRecords);
@@ -258,7 +284,12 @@
 {#if rows.length > 0}
 	<div style="border:1px solid var(--bd);border-radius:8px;background:var(--surf);overflow:hidden">
 		{#each rows as w (w.key)}
-			{@const badge = w.status === 'missing' ? 'Missing' : 'Cutoff Unmet'}
+			{@const badge =
+				w.status === 'downloading'
+					? STATUS_LABEL.downloading
+					: w.status === 'missing'
+						? 'Missing'
+						: 'Cutoff Unmet'}
 			<div
 				class="at-hov-bg"
 				style="display:flex;align-items:center;gap:12px;padding:var(--rowpad);border-bottom:1px solid var(--bd);transition:background 120ms ease-out"
@@ -292,10 +323,29 @@
 					style="flex:none;width:88px;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--sec)"
 					>{w.air}</span
 				>
-				<span
-					style="flex:none;width:150px;font-size:12px;color:var(--sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-					>{w.detail}</span
-				>
+				<span style="flex:none;width:150px">
+					{#if w.status === 'downloading'}
+						<span style="display:flex;align-items:center;gap:6px">
+							<span
+								style="flex:1;height:4px;border-radius:2px;background:var(--bd);overflow:hidden"
+							>
+								<span
+									style="display:block;height:100%;background:var(--accent);width:{w.progressPct ??
+										0}%"
+								></span>
+							</span>
+							<span
+								style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--muted)"
+								>{w.progressPct ?? 0}%</span
+							>
+						</span>
+					{:else}
+						<span
+							style="font-size:12px;color:var(--sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+							>{w.detail}</span
+						>
+					{/if}
+				</span>
 				<span style="flex:none;width:96px;display:flex;justify-content:flex-end"
 					><span
 						style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:6px;white-space:nowrap;background:{STATUS_BADGE_BG[

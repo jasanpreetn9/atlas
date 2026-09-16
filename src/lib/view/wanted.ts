@@ -2,10 +2,12 @@
 // screen), plus the Dashboard's condensed "needs attention" list and recent failures.
 // Pure display mapping. Pages add the per-row action clusters.
 
-import type { WantedKind, HistoryItem } from '$lib/api/client';
+import type { WantedKind, HistoryItem, QueueItem } from '$lib/api/client';
 import type { EpisodeResource, SeriesResource } from '$lib/api/sonarr';
 import type { MovieResource } from '$lib/api/radarr';
 import { agoLabel, airLabel, episodeCode, relativeAge } from './format';
+import { queueIndex } from './media';
+import { queueRow } from './activity';
 
 function isEpisode(r: EpisodeResource | MovieResource): r is EpisodeResource {
 	return 'seriesId' in r && 'episodeNumber' in r;
@@ -53,7 +55,9 @@ export interface WantedRow {
 	/** Epoch ms of the air / release date, for sorting; 0 when unknown. */
 	airMs: number;
 	detail: string;
-	status: 'missing' | 'upgrading';
+	status: 'missing' | 'upgrading' | 'downloading';
+	/** 0-100 when `status` is `downloading`, else null. */
+	progressPct: number | null;
 	href: string;
 	/** Set for series rows. */
 	seriesId?: number;
@@ -71,8 +75,10 @@ export function buildWantedRows(
 	mode: WantedMode,
 	seriesById: Map<number, SeriesResource>,
 	moviesById: Map<number, MovieResource>,
+	queue: QueueItem[] = [],
 	now = new Date()
 ): WantedRow[] {
+	const qIndex = queueIndex(queue);
 	return records.flatMap((rec): WantedRow[] => {
 		if (kind === 'series' && isEpisode(rec)) {
 			const series = rec.series ?? seriesById.get(rec.seriesId);
@@ -82,6 +88,8 @@ export function buildWantedRows(
 				mode === 'missing'
 					? `Monitored · ${series?.network ?? 'Sonarr'}`
 					: `${rec.episodeFile?.quality?.quality?.name ?? 'Has file'} · below cutoff`;
+			const q = queue.find((q) => 'seriesId' in q && q.seriesId === rec.seriesId);
+			const inQueue = qIndex.series.has(rec.seriesId);
 			return [
 				{
 					key: `${mode}-s${rec.id}`,
@@ -92,7 +100,8 @@ export function buildWantedRows(
 					air: airLabel(rec.airDateUtc, now),
 					airMs: ms(rec.airDateUtc),
 					detail,
-					status: mode === 'missing' ? 'missing' : 'upgrading',
+					status: inQueue ? 'downloading' : mode === 'missing' ? 'missing' : 'upgrading',
+					progressPct: inQueue && q ? queueRow(q).pctNum : null,
 					href: `/library/s:${rec.seriesId}`,
 					seriesId: rec.seriesId,
 					episodeId: rec.id,
@@ -109,6 +118,8 @@ export function buildWantedRows(
 			mode === 'missing'
 				? `Monitored · ${full.studio ?? 'Radarr'}`
 				: `${full.movieFile?.quality?.quality?.name ?? 'Has file'} · below cutoff`;
+		const q = queue.find((q) => 'movieId' in q && q.movieId === full.id);
+		const inQueue = qIndex.movie.has(full.id);
 		return [
 			{
 				key: `${mode}-m${full.id}`,
@@ -119,7 +130,8 @@ export function buildWantedRows(
 				air: airLabel(date, now),
 				airMs: ms(date),
 				detail,
-				status: mode === 'missing' ? 'missing' : 'upgrading',
+				status: inQueue ? 'downloading' : mode === 'missing' ? 'missing' : 'upgrading',
+				progressPct: inQueue && q ? queueRow(q).pctNum : null,
 				href: `/library/m:${full.id}`,
 				movieId: full.id,
 				monitored: full.monitored,
@@ -155,10 +167,13 @@ export function missingRows(
 	records: (EpisodeResource | MovieResource)[],
 	kind: WantedKind,
 	seriesById: Map<number, SeriesResource>,
+	queue: QueueItem[] = [],
 	now = new Date()
 ): AttentionRow[] {
+	const qIndex = queueIndex(queue);
 	return records.flatMap((rec): AttentionRow[] => {
 		if (kind === 'series' && isEpisode(rec)) {
+			if (qIndex.series.has(rec.seriesId)) return [];
 			const title = rec.series?.title ?? seriesById.get(rec.seriesId)?.title ?? 'Unknown series';
 			return [
 				{
@@ -176,6 +191,7 @@ export function missingRows(
 		}
 		const m = rec as MovieResource;
 		if (!movieIsGrabbable(m, now)) return [];
+		if (qIndex.movie.has(m.id)) return [];
 		return [
 			{
 				key: `mm${m.id}`,
