@@ -77,6 +77,11 @@ npm run preview   # preview the production build
 
 ## Docker
 
+Prebuilt images are published to GHCR at each tagged release:
+`ghcr.io/jasanpreetn9/atlas:v0.1` / `ghcr.io/jasanpreetn9/atlas:latest`
+(private package — `docker login ghcr.io` / `podman login ghcr.io` with a
+token that has `read:packages` first).
+
 ```sh
 cp .env.example .env      # fill in the four vars below
 docker compose up --build -d

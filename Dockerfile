@@ -17,6 +17,9 @@ RUN npm run build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/jasanpreetn9/atlas" \
+      org.opencontainers.image.description="A unified SvelteKit dashboard over Sonarr and Radarr"
+
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
