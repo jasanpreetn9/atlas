@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api/client';
 	import type { ReleaseItem } from '$lib/api/client';
-	import { store } from '$lib/stores/store.svelte';
+	import { store, resolveOverride } from '$lib/stores/store.svelte';
 	import { formatBytes } from '$lib/view/format';
 
 	const subject = $derived(store.srch);
@@ -58,7 +58,7 @@
 				scoreN: r.customFormatScore,
 				rejected: r.rejected,
 				rejectReason: r.rejections?.join(', ') ?? '',
-				canOverride: subject?.kind === 'movie'
+				canOverride: r.shouldOverride === true && !!subject && resolveOverride(r, subject) !== null
 			};
 		});
 		return list.sort((a, b) => {

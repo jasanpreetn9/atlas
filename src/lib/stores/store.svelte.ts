@@ -3,7 +3,13 @@
 
 import { browser } from '$app/environment';
 import { api } from '$lib/api/client';
-import type { QueueItem, ReleaseItem, SearchSubject, WantedKind } from '$lib/api/client';
+import type {
+	QueueItem,
+	ReleaseItem,
+	ReleaseOverride,
+	SearchSubject,
+	WantedKind
+} from '$lib/api/client';
 import type { EpisodeFileResource } from '$lib/api/sonarr';
 import type { MovieFileResource } from '$lib/api/radarr';
 import type { EpisodeRow } from '$lib/view/episodes';
@@ -280,9 +286,20 @@ class AtlasStore {
 		const subject = this.srch;
 		const key = release.guid ?? '';
 		if (!subject || !key) return;
+
+		const kind: WantedKind = subject.kind === 'movie' ? 'movie' : 'series';
+		let override: ReleaseOverride | undefined;
+		if (opts.override) {
+			override = resolveOverride(release, subject) ?? undefined;
+			if (!override) {
+				this.toast(`Can't override · missing series/movie match`, 'var(--err)');
+				return;
+			}
+		}
+
 		this.grabs = { ...this.grabs, [key]: 'grabbing' };
 		try {
-			await api.pushRelease(subject.kind === 'movie' ? 'movie' : 'series', key, release.indexerId);
+			await api.pushRelease(kind, key, release.indexerId, override);
 			this.grabs = { ...this.grabs, [key]: 'grabbed' };
 			this.toast(
 				`${opts.override ? 'Override & grabbed' : 'Grabbed'} · ${release.indexer ?? 'indexer'} → queue`,
@@ -295,6 +312,31 @@ class AtlasStore {
 			this.toast(`Grab failed · ${subject.label}`, 'var(--err)');
 		}
 	}
+}
+
+/**
+ * What Sonarr/Radarr need to bypass a rejection: the release's own parse when it has
+ * one (it was rejected for e.g. quality, not identification), else the search
+ * subject's own id - see `ReleaseController.DownloadRelease` in both apps.
+ */
+export function resolveOverride(
+	release: ReleaseItem,
+	subject: SearchSubject
+): ReleaseOverride | null {
+	if (subject.kind === 'movie') {
+		const movieId = ('movieId' in release ? release.movieId : null) ?? subject.movieId;
+		if (movieId == null) return null;
+		return { movieId, quality: release.quality, languages: release.languages };
+	}
+	const seriesId = ('seriesId' in release ? release.seriesId : null) ?? subject.seriesId;
+	const episodeIds =
+		'episodeIds' in release && release.episodeIds.length > 0
+			? release.episodeIds
+			: subject.kind === 'episode'
+				? [subject.episodeId]
+				: [];
+	if (seriesId == null || episodeIds.length === 0) return null;
+	return { seriesId, episodeIds, quality: release.quality, languages: release.languages };
 }
 
 export const store = new AtlasStore();

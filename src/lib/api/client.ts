@@ -101,6 +101,15 @@ export type SearchSubject =
 	| { kind: 'episode'; seriesId: number; episodeId: number; label: string }
 	| { kind: 'movie'; movieId: number; label: string };
 
+/**
+ * What `POST /release` needs to bypass an automatic rejection (`shouldOverride: true`
+ * on the release). Sonarr/Radarr re-derive the download target from these fields
+ * instead of the release's own (rejected) parse - see `ReleaseController.DownloadRelease`.
+ */
+export type ReleaseOverride =
+	| { seriesId: number; episodeIds: number[]; quality: QualityModel; languages: Language[] }
+	| { movieId: number; quality: QualityModel; languages: Language[] };
+
 export interface AtlasStatusSummary {
 	sonarr: { configured: boolean; reachable: boolean };
 	radarr: { configured: boolean; reachable: boolean };
@@ -137,8 +146,13 @@ export interface AtlasApi {
 
 	getCalendar(start: string, end: string): Promise<CalendarItem[]>;
 	getReleases(subject: SearchSubject): Promise<ReleaseItem[]>;
-	/** Grab a specific release found by interactive search. */
-	pushRelease(kind: WantedKind, guid: string, indexerId: number): Promise<void>;
+	/** Grab a specific release found by interactive search; pass `override` to bypass a rejection. */
+	pushRelease(
+		kind: WantedKind,
+		guid: string,
+		indexerId: number,
+		override?: ReleaseOverride
+	): Promise<void>;
 
 	/** *arr PUT endpoints require the whole resource back, not a partial patch. */
 	updateSeries(series: SeriesResource): Promise<SeriesResource>;
@@ -467,8 +481,13 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 			return s<SonarrReleaseResource[]>('release', { query, cacheMs: 0 });
 		},
 
-		pushRelease: (kind, guid, indexerId) =>
-			forKind(kind)('release', { method: 'POST', body: { guid, indexerId } }).then(() => {
+		pushRelease: (kind, guid, indexerId, override) =>
+			forKind(kind)('release', {
+				method: 'POST',
+				body: override
+					? { guid, indexerId, shouldOverride: true, ...override }
+					: { guid, indexerId }
+			}).then(() => {
 				clearApiCache();
 			}),
 
