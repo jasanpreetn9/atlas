@@ -120,6 +120,7 @@
 	let fMinAvail = $state<'announced' | 'inCinemas' | 'released'>('released');
 	let fSeasonFolder = $state(true);
 	let fSearch = $state(false);
+	let fTags = $state<number[]>([]);
 
 	const SERIES_MONITOR = [
 		['all', 'All Episodes'],
@@ -149,6 +150,10 @@
 		fMinAvail = 'released';
 		fSeasonFolder = true;
 		fSearch = false;
+		fTags = [];
+	}
+	function toggleTag(id: number) {
+		fTags = fTags.includes(id) ? fTags.filter((t) => t !== id) : [...fTags, id];
 	}
 	function closeDlg() {
 		if (saving) return;
@@ -169,6 +174,7 @@
 					monitored: true,
 					seasonFolder: fSeasonFolder,
 					seriesType: fType,
+					tags: fTags,
 					addOptions: {
 						monitor: fMonitor as MonitorTypes,
 						searchForMissingEpisodes: fSearch,
@@ -185,6 +191,7 @@
 					rootFolderPath: fRoot,
 					monitored: true,
 					minimumAvailability: fMinAvail,
+					tags: fTags,
 					addOptions: {
 						monitor: fMonitor,
 						searchForMovie: fSearch,
@@ -210,6 +217,9 @@
 	);
 	const dlgProfiles = $derived(
 		dlg ? (dlg.item.kind === 'series' ? data.seriesProfiles : data.movieProfiles) : []
+	);
+	const dlgTags = $derived(
+		dlg ? (dlg.item.kind === 'series' ? data.seriesTags : data.movieTags) : []
 	);
 </script>
 
@@ -422,6 +432,29 @@
 							<option value="inCinemas">In Cinemas</option>
 							<option value="released">Released</option>
 						</select>
+					</div>
+				{/if}
+
+				{#if dlgTags.length}
+					<div>
+						<div style="font-size:12px;font-weight:500;color:var(--sec);margin-bottom:6px">
+							Tags
+						</div>
+						<div style="display:flex;flex-wrap:wrap;gap:6px">
+							{#each dlgTags as t (t.id)}
+								{@const on = fTags.includes(t.id)}
+								<button
+									type="button"
+									onclick={() => toggleTag(t.id)}
+									class="at-op"
+									style="height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;cursor:pointer;transition:opacity 120ms ease-out;border:1px solid {on
+										? 'transparent'
+										: 'var(--bd)'};background:{on ? 'var(--inv)' : 'transparent'};color:{on
+										? 'var(--invfg)'
+										: 'var(--sec)'}">{t.label}</button
+								>
+							{/each}
+						</div>
 					</div>
 				{/if}
 

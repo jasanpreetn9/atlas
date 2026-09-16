@@ -21,6 +21,7 @@ import type {
 	QualityProfileResource,
 	RootFolderResource,
 	SystemResource,
+	TagResource,
 	TaskResource,
 	UpdateResource
 } from './common';
@@ -206,6 +207,7 @@ export interface AtlasApi {
 	getLogFiles(kind?: WantedKind): Promise<LogFileResource[]>;
 	getBackups(kind?: WantedKind): Promise<BackupResource[]>;
 	getQualityProfiles(kind?: WantedKind): Promise<QualityProfileResource[]>;
+	getTags(kind: WantedKind): Promise<TagResource[]>;
 
 	lookupSeries(term: string): Promise<SeriesResource[]>;
 	lookupMovie(term: string): Promise<MovieResource[]>;
@@ -696,6 +698,7 @@ export function createHttpApi(fetchFn: FetchFn = fetch): AtlasApi {
 						() => s('qualityprofile'),
 						() => r('qualityprofile')
 					),
+		getTags: (kind) => forKind(kind)<TagResource[]>('tag'),
 
 		lookupSeries: (term) => s<SeriesResource[]>('series/lookup', { query: { term } }),
 		lookupMovie: (term) => r<MovieResource[]>('movie/lookup', { query: { term } }),

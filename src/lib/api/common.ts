@@ -87,6 +87,11 @@ export interface QualityProfileResource {
 	language?: Language;
 }
 
+export interface TagResource {
+	id: number;
+	label: string;
+}
+
 export interface CustomFormatResource {
 	id: number;
 	name: string | null;
