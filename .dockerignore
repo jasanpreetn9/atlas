@@ -1,0 +1,16 @@
+node_modules
+.svelte-kit
+build
+.git
+.github
+.vscode
+.claude
+graphify-out
+docs
+*.md
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -68,7 +68,7 @@ stubbing it - say why in the PR.
 npm run dev      # vite dev, :5173
 npm run check    # svelte-kit sync && svelte-check; must be 0 errors / 0 warnings
 npm run format   # prettier --write .
-npm run build    # adapter-auto
+npm run build    # adapter-node
 ```
 
 Run `npm run check` and `npm run format` before every commit.

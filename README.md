@@ -72,8 +72,61 @@ Screens that need the unconfigured app render an empty state.
 npm run dev       # vite dev server
 npm run check     # svelte-kit sync && svelte-check; keep at 0 errors / 0 warnings
 npm run format    # prettier --write .
-npm run build     # production build (adapter-auto)
+npm run build     # production build (adapter-node)
 npm run preview   # preview the production build
+```
+
+## Docker
+
+```sh
+cp .env.example .env      # fill in the four vars below
+docker compose up --build -d
+```
+
+This builds a multi-stage image (`Dockerfile`): the build stage runs
+`npm ci && npm run build`, and the runtime stage copies only the resulting
+`build/` output onto a plain `node:24-alpine` base — `adapter-node`'s output
+is fully self-contained (no `node_modules`, no npm, no shell needed to run
+it). The container runs as the image's built-in non-root `node` user.
+
+`docker-compose.yml` also locks the container down since it needs no
+filesystem writes or elevated privileges: `read_only: true`, `cap_drop: ALL`,
+`security_opt: no-new-privileges:true`, and a `tmpfs` mount for `/tmp`. It
+healthchecks against `/api/status`.
+
+Without compose:
+
+```sh
+docker build -t atlas .
+docker run -d --name atlas -p 3000:3000 --env-file .env \
+  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+  atlas
+```
+
+Runtime config (adapter-node): `PORT` (default `3000`), `HOST` (default
+`0.0.0.0`), and `ORIGIN` if the app sits behind a reverse proxy on a
+different external URL.
+
+### Podman
+
+Works the same way, rootless by default. Podman's default build format
+(OCI) silently drops `HEALTHCHECK`, so pass `--format docker` to keep it:
+
+```sh
+brew install podman podman-compose   # macOS; first time only
+podman machine init && podman machine start   # macOS; first time only
+
+cp .env.example .env
+podman-compose up -d --build
+```
+
+Without compose:
+
+```sh
+podman build --format docker -t atlas .
+podman run -d --name atlas -p 3000:3000 --env-file .env \
+  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+  atlas
 ```
 
 ## How it works
@@ -123,6 +176,6 @@ Full wiki in [`docs/`](docs/WIKI.md):
 
 ## Stack
 
-SvelteKit 2, Svelte 5 (runes), TypeScript, Vite 8, `adapter-auto`. SvelteKit
+SvelteKit 2, Svelte 5 (runes), TypeScript, Vite 8, `adapter-node`. SvelteKit
 config is inline in `vite.config.ts`; there is no `svelte.config.js`. SSR is on
 with defaults.
